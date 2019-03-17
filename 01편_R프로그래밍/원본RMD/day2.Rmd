@@ -1,0 +1,360 @@
+---
+title: "fastcampus_R프로그래밍_2"
+author: "huimin"
+date: "2019년 3월 16일"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#R에서의 데이터 형식
+Vector : 벡터<br>
+Factor : 펙터<br>
+Matrix : 행렬(메트릭스)<br>
+Array : Matrix와 vector의 확장 형태인 다차원 구조이다.(3차원 이상)<br>
+Data.Frame : 데이터 프레임. 실제로 만나는 대부분의 데이터의 형식이다.<br> 
+List : 모든 데이터 형식을 연결할 수 있는, 1차원 구조의 형식이다.<br>
+
+
+#Vector
+하나의 열(column)로 구성되어 있음. 1차원 구조.<br>
+데이터 분석의 기본 단위<br>
+하나의 데이터 유형만 가짐**(수치형, 문자형, 논리형)**
+```{r}
+# 하나의 값을 가지는 벡터 만들기
+name     <- "강민기"
+age      <- 24
+marriage <- FALSE
+
+
+# 두 개 이상의 요소를 가지는 벡터 만들기
+our.names <- c("안재현", "오준승", "조인정", "임동신", "윤휘영", "박현")
+our.marriage <- c(FALSE,FALSE,FALSE,FALSE,FALSE,FALSE)
+
+
+# :(콜론)을 이용하면 numeric vector를 만들 수 있음
+# 1씩 증가하거나 감소하는 규칙이 있는 숫자로 이루어진 vector
+1:5
+5:1
+10:1
+
+
+# 값은 없거나 초기값으로 벡터 만들기
+# vector(mode = , length = )
+# mode : "numeric", "character", "logical"
+# 주로 초기화할 때 사용함
+vector(mode = "numeric", length = 10)
+vector(mode = "character", length = 10)
+vector(mode = "logical", length = 10)
+```
+
+
+벡터의 속성(Attributes)
+```{r}
+height <- c(170L, 163L, 150L)
+height
+# (1) element의 이름 : names(vector)
+names(height)
+names(height) <- c("박문일", "김주우", "박현")
+names(height) <- c("강민기","이희민","교아")
+height
+# NULL : Object가 없다는 의미
+names(height) <- NULL
+height
+
+
+# (2) element의 개수 : length(vector)
+length(height)
+length(height)
+
+
+# (3) data type      : mode(vector), typeof(vector)
+mode(height)
+mode(height)
+typeof(height)
+typeof(height)
+
+
+# (4) is.vector(data)
+is.vector(height)
+is.vector(height)
+
+
+# (5) as.vector(data)
+```
+
+
+벡터의 인덱스(index)의 경우, **1부터 시작한다.**<br>
+R에서는 **슬라이싱**이 가능하다.( 벡터 중에서 일부의 element를 잘라내기 ) 
+```{r}
+# vector[index]
+weight <- c(70, 67, 52, 45, 65, 73, 82, 45, 70, 60, 53)
+weight[1]
+weight[3]
+weight[5:4]
+
+# 1, 4, 11번째 element를 한 번에 가져오기
+weight[c(1, 4, 11)]
+
+# 2 ~ 9번째 element를 한 번에 가져오기
+weight[2:9]
+
+# 짝수 번째 element를 한 번에 가져오기
+weight[seq(from = 2, to = 11, by = 2)]
+weight[seq(from = 2, to = length(weight), by = 2)]
+weight[seq(from = 2, to = length(weight), by = 2)]
+```
+
+
+유용한 함수
+```{r}
+# 관련 함수 : seq
+# 시작과 끝, 그리고 증감 단위를 지정한다.
+seq(from = 1, to = 5, by = 0.1)
+seq(from = 1, to = 1000, by = 10)
+seq(from = 2, to = 5000, by = 100)
+
+
+# 관련 함수 : rep
+# 주어진 벡터를 복사해서 하나의 벡터를 만듬
+# numeric / character / logical vector를 만들 수 있음
+rep(1, times = 10)
+rep(1, times = 10)
+rep(1, each = 10)
+rep(1, each = 10)
+```
+
+
+벡터의 두 가지 중요한 법칙<br>
+Vectorization : for와 같은 반복문을 사용하지 않고도 결과를 얻어내는 성질<br>
+for문을 사용하면 속도가 느려짐<br><br>
+
+Recycling Rule : 재사용 규칙. 요소의 수가 적은 쪽의 벡터를 큰 쪽의 벡터의 데이터 개수와 동일하게 맞춰줌. 즉, 추가적으로 데이터를 임시로 만듬 임시로 만든 곳은 자신 자신의 값으로 채운다.<br><br>
+
+
+#Factor
+하나의 열로 구성되어 있음. 1차원 구조.<br>
+하나의 데이터 유형만 가짐<br>
+데이터 분석의 기본 단위<br>
+질적 자료( 범주형 자료 )가 됨
+```{r}
+# factor(vector, labels = , levels = , ordered = )
+# ordered = FALSE : 질적 자료, 명목형(nominal) 자료
+# ordered = TRUE  : 질적 자료, 순서형(ordinal) 자료
+at <- c("A","B","C","A","B")
+at <- factor(at, levels = c("B","A","C"), labels = c('a','b','c'), ordered = TRUE)
+at
+```
+
+
+Factor의 **인덱스와 슬라이싱은 Vector와 동일**하다.<br>
+levels : 펙터의 집단<br>
+labels : levels의 이름<br>
+이라고 이해하면 쉽다.<br><br>
+Factor의 속성
+```{r}
+# (1) 집단의 개수       : nlevels(factor)
+nlevels(at)
+
+# (2) 집단의 이름, 순서 : levels(factor)
+levels(at)
+
+# (3) data type         : mode(factor), typeof(factor)
+mode(at)
+typeof(at)
+# 눈에 보이기는 character 보이지만
+# 실질적으로는 numeric으로 인식하고 있음
+
+# (4) is.factor(data)
+is.factor(at)
+
+# (5) as.factor(data)
+as.factor(at)
+
+# (6) element의개수 : length(factor)
+length(at)
+```
+
+
+#Matrix
+행(row)과 열(column)로 구성되어 있음. 2차원 구조<br>
+하나의 데이터 유형만 가짐.<br>
+Vector의 확장이 됨 : Vectorization, Recycling Rule이 적용<br>
+**머신러닝과 여러가지 통계 수식**에 많이 쓰인다.
+```{r}
+v1 <- 1:3
+v2 <- 4:6
+v3 <- 1:6
+
+# Matrix 데이터 형식 만들기
+# (1) rbind(vector1, vector2, ...)
+# bind by row
+# 여러 개의 벡터를 행으로 묶어줌
+A1 <- rbind(v1, v2) 
+A1
+
+A2 <- rbind(v1, v2, v3)
+A2
+
+# (2) cbind(vector1, vector2, ...)
+# bind by column
+B1 <- cbind(v1, v2)
+B1
+
+B2 <- cbind(v1, v2, v3)
+B2
+
+# (3) matrix(vector, nrow = , ncol = , byrow = , dimnames = )
+matrix(1:4, nrow = 2, ncol = 2)               # 열부터 입력
+matrix(1:4, nrow = 2, ncol = 2)
+matrix(1:4, nrow = 2, ncol = 2, byrow = TRUE) # 행부터 입력
+matrix(1:4, nrow = 2, ncol = 2, byrow = TRUE)
+matrix(1:4, nrow = 3, ncol = 2)               # recycling rule
+matrix(1:4, nrow = 3, ncol = 2)
+matrix(1:9, nrow = 3, ncol = 2)
+```
+
+
+Matrix의 속성
+```{r}
+M <- matrix(1:4, nrow = 2, ncol = 2)
+M
+
+# (1) 행의 개수   : nrow(matrix)
+nrow(M)
+
+# (2) 열의 개수   : ncol(matrix)
+ncol(M)
+
+# (3) 행의 이름   : rownames(matrix)
+rownames(M)
+rownames(M) <- c("R1", "R2")
+
+# (4) 열의 이름   : colnames(matrix)
+colnames(M)
+colnames(M) <- c("C1", "C2")
+
+M
+
+# (5) 차원        : dim(matrix), 행의 개수와 열의 개수를 동시에 알려줌
+dim(M)
+dim(M)[2]
+
+# (6) 차원의 이름 : dimnames(matrix), 행의 열의 이름을 동시에 알려줌 
+dimnames(M)
+dimnames(M)[1]
+dimnames(M)[2]
+```
+
+
+Matrix의 인덱스의 경우, vector, factor와 마찬가지로 1부터 시작한다.<br>
+Matrix의 슬라이싱
+```{r}
+# matrix[row, column]
+M1 <- matrix(1:9, nrow = 3, ncol = 3)
+M1
+M1[1 , ]              # 첫 행, Vector
+M1[1, , drop = FALSE] # 첫 행, Matrix
+M1[1:2 , ]
+
+M1[ , 1]               # 첫 열, Vector
+M1[ , 1, drop = FALSE] # 첫 열, Matrix
+M1[ , c(1, 3)]
+
+M1[1, 1]                # 1행, 1열, Vector
+M1[1, 1, drop = FALSE]  # 1행, 1열, Matrix
+
+M1[1:2, 1:2]
+```
+
+
+Matrix 관련 연산과 함수
+```{r}
+# 1. matrix의 곱셉
+# A%*%B
+# 조건: A행렬의 열의 개수와 B행렬의 행의 개수가 같아야 한다.
+# 교환법칙 성립하지 않는다.
+
+A <- matrix(c(1,2), nrow = 1, ncol = 2)
+B <- matrix(c(3,4), nrow = 2, ncol = 1)
+
+A %*% B
+
+# 참고: A * B 는 수학에서의 행렬의 곱셈이 아니다. 같은 인덱스끼리 곱하는 식이다. 
+
+
+# 2. matrix의 역행렬 (inverse matrix) ----
+# solve(matrix) 함수를 이용해서 간단하게 구할 수 있다.
+C <- matrix(1:4, nrow = 2, ncol = 2)
+solve(C)
+C %*% solve(C) # 단위행렬이 결과로 나옴.
+```
+
+
+#Array(다차원 구조)
+하나의 데이터 유형만 가진다.<br>
+vector, matrix의 확장이다. 기본 성질은 비슷하다.
+```{r}
+# array(vector, dim = )
+array(1:5, dim = 10) # 1차원 array 생성 ( array 이면서, vector가 된다 )
+array(1:5, dim = c(3,3)) # 2차원 array 생성 ( matrix 의 형식이 된다.)
+array(1:5, dim = c(5,5))
+array(1:5, dim = c(2,2,2)) # 3차원 array
+array(1:5, dim = c(3,3,3))
+```
+
+
+#DataFrame
+행과 열로 구성되어 있다. ( 2차원 구조 )<br>
+여러 개의 데이터 유형을 가질 수 있다는 점에서 matrix와 다르다.<br>
+단, 하나의 열은 하나의 데이터 유형만 가진다.<br>
+recycling rule이 작동하지 않는다.<br>
+우리들이 실제로 만나는 데이터는 대부분 dataframe이다. 여러가지 데이터 유형을 가지고 있기 때문이다.
+```{r}
+id <- 1:4
+major <- c("경영학","컴퓨터공학","전자공학","문화콘텐츠학")
+major <- factor(major)
+car <- c("포나", NA, "아우디", "G80")
+income <- c(3000,5000,5000,3000)
+
+survey <- data.frame(id,major,car,income)
+survey
+```
+
+
+#List
+1차원 구조<br>
+가장 유연한 형태의 데이터 유형이다.<br>
+회귀분석 등의 결과를 저장하는 데이터<br>
+데이터의 유형들의 요소들은 동일한 메모리 크기를 차지하지만, List는 element의 사이즈를 다르게 할 수 있다.<br>
+따라서 리스트안에 vector, factor, matrix, array, dataframe을 포함할 수 있다.
+```{r}
+food <- c("회덮밥","한식부페", "스테이크덮밥", "목살스테이크", "한식부페")
+
+result <- list(food, A, survey)
+result # 이중 대괄호가 나오면, 리스트다.
+```
+
+
+리스트의 슬라이싱<br>
+list[index] : 리스트의 1번째 요소를 가져온다. ( 리스트를 반환함 )<br>
+list[[index]] : 동일. ( 단, 요소의 데이터 유형을 반환함 )
+```{r}
+result[1] # List
+result[[1]] # Vector
+
+# 응용
+result[[1]][c(1,5)] # Vector의 슬라이싱
+result[[1]][c(1,5)][1] # Vector의 슬라이싱의 슬라이싱
+
+result[2] # list
+result[[2]]
+result[[2]][1, ]
+result[[2]][1, ,drop=FALSE] # matrix
+
+result[3] # list
+result[[3]] # data.frame
+```
