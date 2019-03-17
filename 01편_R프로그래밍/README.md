@@ -1,5 +1,6 @@
 # 01편_R프로그래밍
 fastcampus_R프로그래밍<br>
 day 1 : R스튜디오 단축키, 데이터 타입(유형, 변환), 연산자(산술, 할당, 비교, 논리)<br>
-day 2 :
+day 2 : R에서의 데이터 형식(vector, factor, matrix, array, data.frame, list)<br>
+
 
