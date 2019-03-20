@@ -1,0 +1,493 @@
+---
+title: "fastcampus_R프로그래밍_5"
+author: "huimin"
+date: "2019년 3월 19일"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#EDA ( 탐색적 자료 분석 )
+데이터에 있는 특징을 알아내는 작업이다.<br>
+어려운 통계이론을 사용하기 보다는 쉬운 통계를 이용해서 데이터에 숨겨진 특징을 알아내는 작업이다.<br>
+데이터 분석의 목적 : 예측(prediction), 분류(classification)
+
+##기본 설정하기
+```{r}
+# 필요 패키지 설치하기
+library(tidyverse)
+library(purrr)
+library(dplyr)
+library(naniar)
+
+# 필요한 데이터 불러오기
+house.price <- read.csv(file = "d:/fastcampus/HousePrices.csv",
+                        header = TRUE,
+                        stringsAsFactors = TRUE)
+```
+
+##데이터 확인하기
+```{r}
+# 데이터의 전체적인 구조
+str(house.price)
+
+# 첫머리 10행만 출력해보기
+head(house.price, n = 10)
+
+# 요약 정보 확인하기
+summary(house.price)
+
+
+
+```
+
+
+##일변량(Uni-variate) 질적 자료의 분석
+일변량 : 하나의 열(변수)<br>
+질적 자료 : 범주형 자료
+
+
+###빈도표(Frequency Table) 만들기
+```{r}
+# 빈도(Frequency)
+# table(data$variable) : 빈도를 벡터로 반환한다.
+table(house.price$MSZoning)
+
+# RL이 가장 많이 나왔다. 정렬을 해준다.
+MSZoning.Frequency <- sort(table(house.price$MSZoning), decreasing = TRUE)
+sort(table(house.price$MSZoning), decreasing = TRUE)[1:3] # 상위 3개
+```
+
+
+###백분율
+```{r}
+# 백분율(Percent)
+# prop.table(Frequency) : 전체를 1로 두고 비율을 구하여 벡터로 반환한다.
+prop.table(table(house.price$MSZoning))*100
+sort(prop.table(table(house.price$MSZoning))*100, decreasing = TRUE)
+
+# 소수점 조절하기
+MSZoning.Percent <- round(sort(prop.table(table(house.price$MSZoning))*100, decreasing = TRUE), digits = 1)
+
+# 빈도와 백분율 합치기
+MSZoning.table <- cbind(MSZoning.Frequency, MSZoning.Percent)
+MSZoning.table
+```
+
+
+###모든 factor에 대해서 빈도와 백분율 구해서 객체에 저장하기
+```{r}
+
+# house.price에서 factor만 가져온 새로운 객체
+house.price.factor <- house.price[, sapply(house.price, is.factor)]
+
+# 저장될 반복문
+result.frame <- data.frame()
+
+# 빈도와 백분율을 result.frame에 저장하는 반복문
+for(i in 1:ncol(house.price.factor)){
+  
+  table <- table(house.price.factor[,i])
+  prop <- prop.table(table(house.price.factor[,i]))
+  
+  result <- cbind(variable = colnames(house.price.factor)[i],
+                  table, 
+                  prop)
+  
+  result.frame <- rbind(result.frame, result)
+}
+
+# 현재 rownames로 설정된 것을 colume으로 전환하고, rownames는 초기화하기
+result.frame <- cbind(NAME = rownames(result.frame),result.frame)
+rownames(result.frame) <- NULL
+
+# 저장하기
+writexl::write_xlsx(result.frame,
+                    path = "C:/Users/Leehuimin/Desktop/프로그래밍 언어/R/fastcampus_markdown_project/01편_R프로그래밍/result.xlsx")
+```
+
+
+### purrr 패키지 : factor만 추출하는 또 다른 방법
+```{r}
+# factor인 열만 추출한다.
+house.price.factor <- house.price %>% purrr::keep(is.factor)
+
+# factor인 열을 버린다.
+house.price.nonfactor <- house.price %>% purrr::discard(is.factor) 
+```
+
+
+###막대 그래프 (Bar plot)
+질적자료가 주로 비율을 사용하기 때문에, 막대/원 그래프를 사용한다.<br>
+비중이 많은 것이 눈에서 가까워야 한다.<br>
+**barplot(frequency or percent)**
+```{r}
+barplot(sort(table(house.price$MSZoning), decreasing = TRUE))
+```
+
+
+###원 그래프 (Pie Chart)
+**pie(frequency or percent)**
+```{r}
+pie(sort(table(house.price$MSZoning), decreasing = TRUE))
+```
+
+
+###그래프의 자세한 옵션은 day6(b) 소스코드 참고
+시각화는 워낙 방대한 분량을 차지하기 때문에, 이 요약 마크다운에서는 부담만 가중될 것이다.
+
+
+##apply 계열 함수
+###apply(X, MARGIN = , FUN = )
+margin = 1일 경우 행에 함수를 적용<br>
+margin = 2일 경우 열에 함수를 적용<br>
+X = array, matrix<br>
+리턴 : vector, array, list
+```{r}
+A <- matrix(1:9, nrow = 3, ncol = 3)
+
+apply(A, 1, mean) 
+apply(A, 1, is.numeric)
+apply(A, 2, sum)
+```
+
+
+###sapply(X, FUN = )
+vector, mattrix 혹은 , simplify = TRUE(default) 적용 시 배열을 반환한다.<br>
+simplify = FALSE, USE.NAMES = FALSE일 경우 lapply와 같다.
+```{r}
+id <- 1:3
+bt <- factor(c("a","a","b"), levels = c("a","b"))
+age <- c(10,20,30)
+major <- factor(c("통계","컴퓨터","통계"), levels = c("통계","컴퓨터"))
+money <- c(30,40,50)
+df1 <- data.frame(id,bt,age,major,money)
+
+df1[ , sapply(df1, is.factor)] # 이런 식으로 응용 가능하다.
+```
+
+
+###기타 : lapply, tapply, mapply
+
+
+##일변량(uni-variate) 양적 자료의 분석
+###데이터 불러오고 준비하기
+```{r}
+
+house.price <- read.csv(file = "d:/fastcampus/HousePrices.csv",
+                        header = TRUE,
+                        stringsAsFactors = TRUE)
+
+house.price.numeric <- house.price %>% purrr::keep(is.numeric)
+```
+
+
+###구간의 빈도표(Frequency Table)와 백분율
+```{r}
+# (1) 구간의 빈도
+
+# 구간의 범위 (max - min = range)
+LotArea.Min <- min(house.price.numeric$LotArea)
+LotArea.Max <- max(house.price.numeric$LotArea)
+LotArea.Range <- LotArea.Max - LotArea.Min
+
+# 구간의 개수
+interval.count <- 1 + 3.3*log10(length(house.price.numeric$LotArea))
+interval.count <- as.integer(interval.count)
+
+# 구간의 폭
+interval.width <- LotArea.Range / interval.count
+interval.width <- round(interval.width, digits = -3) # 간단하게 조정
+
+# 도출된 구간의 정보
+# 최솟값 : 1300, 최댓값 : 215245 이므로
+# 첫번째 구간 : 0~18000 마지막 구간: 198000 ~ 216000
+# 구간의 정보 : 0, 18000, 36000, 54000, 72000, 90000, ... , 216000
+
+# 구간의 정보를 갖는 새로운 변수 만들기
+house.price.numeric$LotArea.group <- cut(house.price.numeric$LotArea,
+                                         breaks = seq(from = 0, to = 220000, by = 18000),
+                                         right = FALSE)
+
+# 빈도표 도출
+table(house.price.numeric$LotArea.group)
+
+# (2) 구간의 백분율
+round(prop.table(table(house.price.numeric$LotArea.group))*100,
+      digits = 1)
+```
+
+
+###연습 : SalePrice에서 동일하게 빈도와 백분율을 구하시오.
+```{r}
+# 데이터 확인하기
+summary(house.price$SalePrice)
+str(house.price$SalePrice)
+length(house.price$SalePrice[is.na(house.price$SalePrice)]) # na 확인
+
+# 구간 설정하기
+saleprice.min <- min(house.price$SalePrice, na.rm = TRUE)
+saleprice.max <- max(house.price$SalePrice, na.rm = TRUE)
+saleprice.range <- saleprice.max - saleprice.min
+
+saleprice.count <- round((1 + 3.3*log10(length(house.price$SalePrice))),
+                         digits = 0)
+
+saleprice.width <- round((saleprice.range / saleprice.count),
+                         digits = -2)
+
+house.price.numeric$saleprice.group <- cut(house.price.numeric$SalePrice,
+                                           breaks = seq(from = 0,
+                                                        to = 780000,
+                                                        by = 60000),
+                                           right = FALSE)
+
+# 빈도
+table(house.price.numeric$saleprice.group)
+# 백분율
+prop.table(table(house.price.numeric$saleprice.group))*100
+```
+
+
+###히스토그램
+hist(data$variable)<br>
+hist(data$variable, breaks = 구간 정보)<br>
+hist(data$variable, breaks = 구간의 개수)<br>
+나머지 아규먼트는 동일하다. main, ylim, ylab, 등등...<br>
+특히 **xlim과 ylim**은 매우 유용하다!
+```{r}
+hist(house.price.numeric$SalePrice) # sturges Formula가 자동으로 적용됨
+hist(house.price.numeric$SalePrice,
+     breaks = seq(from = 0, to = 800000, 60000)) # 구간의 정보
+
+hist(house.price.numeric$SalePrice,
+     breaks = 1000) # 구간의 개수
+
+hist(house.price.numeric$SalePrice,
+     breaks = 3000,
+     xlim = c(0,400000)) # xlim 추가
+```
+
+
+###상자그림(Boxplot)
+이상치(outlier)를 파악하기 위해서 그리는 그래프이다.
+boxplot(data$variable)
+boxplot(data.variable ~ data.variable) : 집단 별 상자그림
+boxplot(양적 자료 ~ 질적 자료)
+```{r}
+# 작은 원으로 나오는 것들은 이상치다.
+boxplot(house.price.numeric$SalePrice)
+
+# 여러가지 변수들을 한 번에 비교하기
+boxplot(house.price$SalePrice ~ house.price$MSZoning)
+```
+
+
+###ggplot2 패키지를 이용한 히스토그램과 상자그림
+```{r}
+house.price.numeric %>%
+  ggplot2::ggplot(mapping = aes(x = SalePrice)) +
+  geom_histogram()
+
+house.price.numeric %>%
+  ggplot2::ggplot(mapping = aes(x = SalePrice)) +
+  geom_histogram(binwidth = 100000) # 구간의 폭
+
+house.price %>%
+  ggplot2::ggplot(mapping = aes(x = SalePrice)) +
+  geom_histogram(bins = 20) # 구간의 개수
+
+house.price %>%
+  ggplot2::ggplot(mapping = aes(x = SalePrice)) +
+  geom_histogram() +
+  facet_wrap( ~MSZoning + Street) # 집단별 히스토그램
+
+# 상자그림
+house.price %>%
+  ggplot2::ggplot(mapping = aes(x = MSZoning,
+                                y = SalePrice)) +
+  geom_boxplot()
+
+
+house.price %>%
+  ggplot2::ggplot(mapping = aes(x = MSZoning,
+                                y = SalePrice)) +
+  geom_boxplot() +
+  facet_wrap(~Street)
+```
+
+
+###기술통계량 = 요약통계량
+(1) 중심 = 대표값
+```{r}
+# 평균(Mean)
+# mean(data$variable, na.rm = TRUE)
+mean(house.price$SalePrice)
+mean(house.price$SalePrice, na.rm = TRUE)
+
+# 절사 평균(Trimmed Mean)
+# mean(data$variable, trim = , na.rm = TRUE)
+# trim은 0 ~ 0.5 사이의 값이다.
+mean(house.price$SalePrice, trim = 0.05, na.rm = TRUE)
+
+# 중위수(중앙값 = Median)
+# median(data$variable, na.rm = TRUE)
+median(house.price$SalePrice, na.rm = TRUE)
+
+# 최빈수(최빈값 = Mode)
+# which.max(table(data$variable))
+# prettyR::Mode(data$variable, na.rm = TRUE)
+which.max(c(3, 107, 203, 77, 1023))
+ages <- c(29, 25, 27, 27, 26, 35)
+table(ages)
+
+which.max(table(ages)) # 빈도가 가장 큰 값의 인덱스 위치를 반환한다.
+which.max(table(house.price$SalePrice))
+
+
+prettyR::Mode(house.price$SalePrice, na.rm = TRUE)
+```
+
+
+(2) 퍼짐 = 산포 = 다름<br>
+얼마나 다를까를 알려주는 값<br>
+범위, 사분위범위=사분위수범위, 분산, 표준편차, 중위수 절대 편차
+```{r}
+# 범위(Range) : 최댓값(Max) - 최솟값(Min)
+# diff(range(data$variable, na.rm = TRUE))
+range(house.price$SalePrice, na.rm = TRUE) # numeric vector
+range(house.price$SalePrice, na.rm = TRUE)[1] # 최솟값 
+range(house.price$SalePrice, na.rm = TRUE)[2] # 최댓값
+
+diff(c(34900, 755000, 34900)) # 차이를 2개씩 짝지어서 반환해준다.
+# 시계열 계산에 유용하다.
+
+# 범위 계산
+diff(range(house.price$SalePrice, na.rm = TRUE))
+
+
+# 사분위범위 = 사분위수범위 ( IQR : Inter-Quartile Range )
+# Q3 - Q1
+# IQR(data$variable, na.rm = TRUE)
+IQR(house.price$SalePrice, na.rm = TRUE)
+
+
+# 분산 ( Variance )
+# var(data$variable, na.rm = TRUE)
+var(house.price$SalePrice, na.rm = TRUE)
+
+
+# 표준편차 ( Standard Deviation )
+# 평균과 양적 자료가 얼마나 다를까를 알려주는 값
+# sd(data$variable, na.rm = TRUE)
+sd(house.price$SalePrice, na.rm = TRUE)
+
+
+# 중위수 절대 편차 ( MAD : Median Absolute Deviation )
+# 중위수와 양적자료가 얼마나 다른지를 알려주는 함수이다.
+# mad(data$variable, na.rm = TRUE)
+mad(house.price$SalePrice, na.rm = TRUE) # 중위수 160000와 56338.8 정도 차이가 난다는 결과나 반환된다.
+```
+
+
+(3) 분포의 모양
+```{r}
+# 왜도(Skewness) : 대칭 여부를 알려주는 값
+# 왜도 = 0 : 대칭
+# 왜도 < 0 : 비대칭 ( 오른쪽으로 치우쳐짐 )
+# 왜도 > 0 : 비대칭 ( 왼쪽으로 치우쳐짐 )
+# e1071::skewness(data$variable, na.rm = TRUE)
+e1071::skewness(house.price$SalePrice, na.rm = TRUE)
+
+# 첨도(kurtosis) : 중심이 얼마나 뾰족한 지 알려주는 값 
+# 첨도 = 0 : 중심이 보통정도에 몰려있음
+# 첨도 > 0 : 중심에 몰려서 뾰족해진다
+# 첨도 < 0 : 중심이 낮아진다
+# e1071::kurtosis(data$variable, na.rm = TRUE)
+e1071::kurtosis(house.price$SalePrice, na.rm = TRUE)
+```
+
+
+###기술통계량 구하는데에 유용한 함수들
+summary(data$variable or data)<br>
+by(양적 자료, 질적 자료, 함수명)<br>
+psych::describe(data$variable)<br>
+psych::describeBy(양적 자료, 질접 자료)
+```{r}
+# (1) summary(data$variable or data)
+summary(house.price$SalePrice)
+
+# (2) by(data$variable, data$variable, function.name)
+# by(양적 자료, 질적 자료, 함수명)
+# 집단별로 양적 자료에 대한 기술통계량
+par(mfrow = c(3,1))
+by(house.price$SalePrice, house.price$MSZoning, mean, na.rm = TRUE)
+by(house.price$SalePrice, house.price$MSZoning, sd, na.rm = TRUE)
+by(house.price$SalePrice, house.price$MSZoning, summary, na.rm = TRUE)
+by(house.price$SalePrice, house.price$MSZoning, hist, na.rm = TRUE)
+par(mfrow = c(1,1))
+
+# (3) psych::describe(), describeBy()
+# psych::describe(data$variable)
+psych::describe(house.price$SalePrice) # 10% 절사평균을 기본으로 한다.
+psych::describe(house.price$SalePrice, trim = 0.05) # 바꿀 수 있음
+
+# psych::describeBy(data$variable, data$variable)
+# psych::describeBy(양적 자료, 질접 자료)
+# 전체 양적 자료와 하나의 질적 자료를 집단별로 기술통계량을 반환 할 수 있다.
+psych::describeBy(house.price$SalePrice, house.price$MSZoning)
+```
+
+
+###Missing Value 처리하기
+```{r}
+# (1) 처리하지 않고 분석
+# naniar::miss_var_summary(data)
+# naniar::miss_case_summary(data)
+
+# Missing Value 확인하기
+naniar::miss_var_summary(house.price)
+# 전체 데이터의 5%를 넘어가면 좋지 않은 데이터이다.
+
+# 행별로 Missing Value 확인하기
+naniar::miss_case_summary(house.price)
+
+# (2) 삭제하고 분석
+
+# na.omit(data)
+# missing value가 한 행에 하나라도 있으면 그 행을 제거해버린다.
+# 그렇기 때문에, 모든 행이 사라질 수도 있다.
+na.omit(house.price)
+
+# complete.cases(data)
+# missing value가 완전히 없는 행만 반환한다.
+house.price[complete.cases(house.price), ]
+
+# 응용하기
+# SalePrice에서 missing value가 없는 값만 가져오기
+# house.price[complete.cases(house.price$SalePrice), ]
+naniar::n_miss(house.price$SalePrice) # 변수의 missing value 개수
+
+# (3) 다른 값으로 대체하여 분석 ( imputation )
+
+# 평균으로 대체하기
+house.price[is.na(house.price$SalePrice), "SalePrice"] <- mean(house.price$SalePrice,
+                                                    na.rm = TRUE) 
+
+# 중위수로 대체하기
+house.price[is.na(house.price$SalePrice), "SalePrice"] <- median(house.price$SalePrice,
+                                                    na.rm = TRUE)
+
+# 잘 대체되었는지 확인하기
+naniar::n_miss(house.price$SalePrice)
+```
+
+
+#인터넷에서 알아낸 꿀팁
+```{r}
+# 현재 적재한 데이터 사이즈 확인하기
+print(object.size(house.price), units='MB')
+```
+
