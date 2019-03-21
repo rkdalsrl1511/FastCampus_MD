@@ -1,0 +1,117 @@
+---
+title: "fastcampus_R프로그래밍_6"
+author: "huimin"
+date: "2019년 3월 21일"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#기본 설정
+```{r}
+library(tidyverse)
+library(purrr)
+library(e1071)
+
+
+house.price <- read.csv(file = "d:/fastcampus/HousePrices.csv",
+                        header = TRUE,
+                        stringsAsFactors = TRUE)
+```
+
+
+#사용자 함수 만들기
+사용자가 만든 함수는 기존의 함수보다 우선순위를 가진다.<br>
+function.name <- function(argments) { 작업 }<br>
+
+
+임의 데이터를 넣고, **factor이면 막대그래프**를 그리고,<br>
+**numeric이면 n, 평균, 표준편차**를 구하는 함수<br>
+그래프는 return하지 않는다.<br>
+factor 막대 n개<br>
+numeric n개 : n행 3열의 numeric n개
+```{r}
+
+example.function <- function(dataset){
+  
+  dataset.factor <- dataset %>% purrr::keep(is.factor)
+  dataset.numeric <- dataset %>% purrr::keep(is.numeric)
+  
+  par(mfrow = c(4,4))
+  for(i in 1:ncol(dataset.factor)){
+    
+    barplot(table(dataset.factor[, i]))
+    
+  }
+  par(mfrow = c(1,1))
+  
+  # 결과 저장 프레임
+  result.frame <- data.frame()
+
+  for(i in 1:ncol(dataset.numeric)){
+
+    n <- length(dataset.numeric[complete.cases(dataset.numeric[, i]), i])
+    mean <- mean(dataset.numeric[, i], na.rm = TRUE)
+    sd <- sd(dataset.numeric[, i], na.rm = TRUE)
+
+    result <- data.frame(n, mean, sd)
+
+    result.frame <- rbind(result.frame, result)
+
+  }
+
+  return(result.frame)
+  
+}
+
+result.frame <- example.function(house.price)
+print(result.frame)
+
+```
+
+
+#정규분포
+정규분포는 종모양이다.<br>
+정규분포는 **모집단에 대한 입장**이다.<br>
+정규분포는 평균과 표준편차(모수)에 의해서 모양이 결정된다.<br>
+정규분포는 평균을 기준으로 **완전 대칭**이고, 평균에서 멀어질수록 해당 값이 거의 없다.
+```{r}
+# 정규분포 관련 함수들 ----
+
+# pnorm(x, mean = , sd = ) : 누적확률을 구한다.
+
+# 평균이 170, 표준편차 10, 정규분포를 따를 때
+# (1) 170이하의 면적은 ( 누적 확률은 ) ?
+pnorm(170, mean = 170, sd = 10)
+# (2) 190이상의 면적은?
+1- pnorm(190, mean = 170, sd = 10)
+# (3) 140 ~ 200 사이의 면적은?
+pnorm(200, mean = 170, sd = 10) - pnorm(140, mean = 170, sd = 10)
+# (4) 173 이상의 면적은?
+1-pnorm(173, mean = 170, sd = 10)
+
+round(1-pnorm(168, mean = 170, sd = 1), digits = 3)
+round(pnorm(167, mean = 170, sd=1), digits = 3)
+round(pnorm(172, mean = 170, sd = 1), digits = 3)
+round(pnorm(172, mean = 170, sd = 1), digits = 3)
+round(1-pnorm(2, mean = 0, sd = 1), digits = 3)
+
+
+# qnorm(확률, mean = , sd = ) : 확률을 주면 그 값을 알려준다.
+qnorm(0.5, mean = 170, sd = 10)
+qnorm(0.62, mean = 170, sd = 10)
+qnorm(0.95, mean = 170, sd = 10)
+qnorm(0.025, mean = 170, sd = 1)
+qnorm(0.975, mean = 170, sd = 1)
+
+# dnorm(x, mean = , sd = ) : 확률밀도를 구해준다.
+dnorm(170, mean = 170, sd = 10)
+
+# rnorm : 정규분포를 따르는 난수 생성하기
+# 여러가지 분포를 따르는 난수를 생성하는 함수들이 있으니 구글링 ㄱㄱ
+# rnorm(n = , mean = , sd = )
+rnorm(n=10, mean=170, sd=10)
+round(1-pnorm(2, mean = 0, sd = 1), digits = 3)
+```
