@@ -5,5 +5,7 @@ day 2 : R에서의 데이터 형식(vector, factor, matrix, array, data.frame, l
 day 3 : 임포트 데이터( 파일 형식들 알아보기 ), 패키지 직접 경로 지정해서 설치하기<br> 
 day 4 : 데이터 핸들링 ( R에서 데이터를 다루기 좋은 함수들 )<br>
 day 5 : EDA<br>
+day 6 : 함수 만들기, 정규분포 관련 함수<br>
+day 7 : one sample test, two sample test<br>
 
 
