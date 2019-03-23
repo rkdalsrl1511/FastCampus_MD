@@ -1,0 +1,416 @@
+---
+title: "fastcampus_R프로그래밍_9"
+author: "huimin"
+date: "2019년 3월 23일"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#기본 설정
+```{r}
+library(tidyverse)
+library(purrr)
+library(psych) # corr.test() 사용하기 위해서
+library(car)
+
+house.price <- read.csv(file = "d:/fastcampus/HousePrices.csv",
+                        header = TRUE,
+                        stringsAsFactors = TRUE)
+
+```
+
+
+#Correlation Analysis ( 상관분석 )
+**2개의 양적 자료**간의 직선(선형)의 관계**(상관관계)**가 있는지를 통계적으로 검정(분석)하는 방법<br>
+**자료**<br>
+양적 자료 : 2개<br>
+동일한 대상자에게 수집(측정)한 양적 자료임
+
+
+##상관계수
+선형관계를 수치로 알려줌 (상관관계의 정도)<br>
+상관계수의 값은 -1 ~ 1의 값을 가지며 음수일 경우 음의 상관관계, 양수일 경우 양의 상관관계를 가진다.<br>
+또한, 절대값이 크면 클수록 상관관계의 정도가 강하다.
+
+
+cor(양적 자료, 양적 자료, method = )<br>
+cor(x, y, method = )<br>
+method : "pearson"(default), "spearman", "kendall"<br>
+pearson : 양적자료와 양적자료 비교<br>
+spearman : 순서형 자료와 순서형 자료 비교 ( 비모수적 방법과 비슷 )<br>
+kendall : 순서형 자료와 순서형 자료 비교 ( 비모수적 방법과 비슷 )
+```{r}
+# NA값 제거하기
+house.price.df2 <- house.price[complete.cases(house.price$LotArea,
+                                              house.price$SalePrice), ]
+
+# 상관계수
+cor.result <- cor(house.price.df2$LotArea,
+                  house.price.df2$SalePrice,
+                  method = "pearson")
+
+# 소수점 3자리까지 표현하기
+round(cor.result, digits = 3)
+```
+
+
+상관계수 해석 : LotArea와 SalePrice는 미약하게 양의 상관관계를 보인다.
+
+
+##상관계수 행렬
+```{r}
+# 양적 자료만 선별
+house.price.df <- house.price %>%
+  dplyr::select(SalePrice, contains("Area"))
+
+# NA 제거
+house.price.df <- na.omit(house.price.df)
+
+# 상관계수 행렬
+# cor(data, method = "pearson")
+round(cor(house.price.df, method = "pearson"),
+      digits = 3)
+```
+
+
+##상관분석
+귀무가설 : LotArea와 SalePrice 간에는 관련성(상관관계)이 없다.<br>
+대립가설 : LotArea와 SalePrice 간에는 관련성(상관관계)이 있다.
+
+
+cor.test(양적 자료, 양적 자료, method = "pearson")<br>
+cor.test(x, y, method = "pearson")
+```{r}
+cor.test(house.price$LotArea,
+         house.price$SalePrice,
+         method = "pearson")
+```
+
+
+**결론** : 유의확률이 0.000이므로, 유의수준 0.05에서 LotArea와 SalePrice 간에는 관련성이 있다고 추정할 수 있다. 이 때의 상관계수는 0.264이다.
+
+
+##상관분석 결과를 저장할 수 있는 분석 함수
+cor.test(data)는 불가능하다. psych 패키지를 이용한다.<br>
+psych::corr.test(data, method = "pearson")
+```{r}
+corr.test.result <- psych::corr.test(house.price.df)
+
+corr.test.result$r
+corr.test.result$p
+```
+
+
+#Regression Analysis ( 회귀분석 )
+어떤 양적 자료가 다른 양적 자료에게 영향을 주는지를 통계적으로 검정(분석)하는 방법<br>
+**인과관계**가 있는지를 분석하는 방법<br>
+선형면(직선)으로 분석하는 것을 **선형 회귀 분석**이라고 하며, 가장 간단하여 해석하기 쉬운 모형이다.<br>
+
+
+**목적**<br>
+(1) 예측 ( Prediction )<br>
+(2) 분류 ( Classification )<br>
+
+
+**자료**<br>
+최소 2개의 자료가 있어야 함.<br>
+양적 자료 1개 : **종속변수** = 반응변수 = **Label**<br>
+양적 자료 1개 이상 : **독립변수** = 설명변수 = **feature**<br>
+
+
+**종류**<br>
+단순선형 회귀분석 : Simple Linear Regression Analysis<br>
+종속변수 1개<br>
+독립변수 1개<br>
+
+
+다중선형 회귀분석 : Multiple Linear Regression Analysis<br>
+종속변수 1개<br>
+독립변수 2개 이상<br>
+
+
+##단순선형 회귀분석 실습
+종속변수 : SalePrice<br> 
+독립변수 : GrLivArea<br>
+GrLivArea가 SalePrice에 영향을 주는가?<br>
+회귀모형 : SalePrice = beta0 + beta1*GrLivArea + error<br>
+
+
+lm(종속변수 ~ 독립변수, data = )<br>
+summary(회귀분석결과)
+```{r}
+regression.model <- lm(SalePrice ~ GrLivArea,
+                       data = house.price)
+
+summary(regression.model)
+```
+
+
+###결과해석
+(SalePrice) = 18569 + 107.1*(GrLivArea)<br>
+
+
+###1단계 : 회귀모형의 타당성
+귀무가설 : 이 회귀모형은 타당하지 않다.<br>
+대립가설 : 이 회귀모형은 타당하다.<br>
+F-statistic를 본다.<br>
+ssr의 자유도 : 1<br>
+sse의 자유도 : 1458 = n-2<br>
+F = 1471<br>
+**p-value = 0.000**
+
+
+###2단계 : 독립변수는 종속변수에서 영향을 미치는가?
+귀무가설 : 독립변수는 종속변수에게 영향을 주지 않는다. (beta1 = 0)<br>
+대립가설 : 독립변수는 종속변수에게 영향을 준다. (beta1 != 0)<br>
+회귀분석 결과에서 Coefficients 부분의 p-value를 본다.<br>
+**p-value = 0.000**
+
+
+###3단계 : 독립변수가 종속변수에게 얼마나 영향을 미치는가?
+회귀분석의 결과에서 coefficients 부분의 Estimate를 보면 된다.<br>
++ 일 경우 증가시키는 영향, -일 경우 감소시키는 영향이다.<br>
+
+
+**결론** :독립변수의 기본 단위가 1증가하면 종속 변수는 약 107.130 정도 증가시키는 영향을 준다. GrLivArea(용적)이 1 square feet 만큼 증가하면, SalePrice는 약 107.130$ 정도 증가시키는 영향을 준다.
+
+
+###4단계 : 회귀모형의 설명력
+독립변수가 종속변수의 변화를 얼마나 설명하고 있는가?<br>
+회귀분석 결과에서 다음을 본다.<br>
+Multiple R-squared:  0.5021<br>
+
+
+R Square : **결정계수** ( Coefficient of Determination )<br>
+( SSR / SST ) x 100 : 0.5021 x 100 = 50.2%<br>
+
+
+**결론** : 독립변수가 종속변수의 다름을 약 50.2% 정도 설명하고 있다.<br>
+GrLivArea(용적)이 SalePrice(가격)의 다름을 50.2% 설명하고 있다.<br>
+다른 말로 하면, GrLivArea가 SalePrice의 다름을 설명하지 못하고 있는 부분이 40.8% 있다. ( SSE / SST ) * 100<br>
+
+
+###5단계 : 예측
+predict(model, newdata = data.frame(독립변수 = ))<br>
+예측하고 싶은 값을 넣거나, 전체 데이터를 넣으면 회귀모형에 맞는 예측을 반환해준다.
+```{r}
+predict(regression.model, newdata = data.frame(GrLivArea = 2000))
+
+predict(regression.model, 
+        newdata = data.frame(GrLivArea = c(1000, 1500, 2000)))
+
+# 예측값
+pred <- predict(regression.model, house.price)
+# 예측값을 house.price에 추가하기
+house.price$SalePrice.pred <- pred
+house.price$SalePrice.pred[is.na(house.price$SalePrice)] <- NA
+
+# 예측값과 실제 데이터 간단하게 비교해보기
+ggplot(data = house.price) +
+  geom_histogram(mapping = aes(x = SalePrice),
+                 fill = "red",
+                 color = "red",
+                 alpha = 0.2) +
+  geom_histogram(mapping = aes(x = SalePrice.pred),
+                 fill = "blue",
+                 color = "blue",
+                 alpha = 0.2)
+```
+
+
+붉은색 히스토그램 = **실제값**<br>
+파란색 히스토그램 = **예측값**
+
+
+##다중선형 회귀분석 실습
+lm(종속변수 ~ 독립변수1 + 독립변수2 + 독립변수p, data = )<br>
+summary(다중 선형 회귀분석의 결과)<br>
+
+
+특정 데이터에서 종속변수를 제외한 나머지 모든 변수를 독립변수로 지정하는 방법<br>
+lm(종속변수 ~ ., data = )<br>
+summary(다중 선형 회귀분석의 결과)<br>
+
+종속변수 : SalePrice<br>
+독립변수 : 변수명에 Area이 있는 것들
+```{r}
+# 종속변수 SalePrice와 각종 양적 자료들만 선별한 데이터셋
+house.price.numeric <- house.price %>% dplyr::select(SalePrice,
+                                                     contains("Area"))
+
+# 회귀모델 만들기
+regression.model2 <- lm(SalePrice ~ .,
+                        data = house.price.numeric)
+
+# 결과 보기
+summary(regression.model2)
+
+
+# 예측하기
+house.price.numeric$SalePrice.pred <- predict(regression.model2,
+                                              house.price.numeric)
+
+house.price.numeric$SalePrice.pred[is.na(house.price.numeric$SalePrice)] <- NA
+
+
+# 예측값과 실제 데이터 간단하게 비교해보기
+ggplot(data = house.price.numeric) +
+  geom_histogram(mapping = aes(x = SalePrice),
+                 fill = "red",
+                 color = "red",
+                 alpha = 0.2) +
+  geom_histogram(mapping = aes(x = SalePrice.pred),
+                 fill = "blue",
+                 color = "blue",
+                 alpha = 0.2)
+
+```
+
+
+##회귀분석에서 고려해야 할 사항들
+**1. 변수선택 방법 ( Variable Selection )**<br>
+step(회귀모형, direction = )<br>
+direction : "forward", "backward", "both"<br>
+foward : 전진선택법<br>
+backward : 후진소거법<br>
+both : stepwise 단계선택법<br>
+
+
+**어떤 방법을 최종 모형으로 사용할까?**<br>
+AIC값이 가장 작은 것이 좋은 모형임<br>
+또는 R-Square or Adjusted R-Square : 값이 가장 큰 것이 좋은 모형임
+```{r}
+# forward selection
+house.price.forward.model <- step(regression.model2,
+                                  direction = "forward")
+summary(house.price.forward.model)
+
+# backward selection
+# 가장 마지막 부분이 최종적인 회귀모형이다.
+house.price.backward.model <- step(regression.model2,
+                                   direction = "backward")
+summary(house.price.backward.model)
+
+# stepwise
+# 가장 마지막 부분이 최종적인 회귀모형이다.
+house.price.stepwise.model <- step(regression.model2,
+                                   direction = "both")
+summary(house.price.stepwise.model)
+
+
+# 각 방식에 따른 AIC
+house.price.forward.model$anova$AIC
+house.price.backward.model$anova$AIC
+house.price.stepwise.model$anova$AIC
+```
+
+
+**2. 다중공선성(Multicolinearity)**<br>
+회귀모형에 있는 독립변수들 간의 상관관계가 있는지를 알려줌<br>
+회귀모형의 가정 중에 하나는, 독립변수들 간에는 상관관계가 없어야 한다는 것이다.<br>
+
+
+VIF : Variance Inflation Factor : 분산 팽창 인자 = 분산 팽창 요인<br>
+**VIF 값이 10 이상이면 다중공선성이 있다고 판단한다.**<br>
+10미만이면, 다중공선성이 없다고 판단한다.<br>
+
+
+car::vif(최종회귀모형)<br>
+
+```{r}
+# 다중공선성 확인하기
+car::vif(house.price.stepwise.model)
+```
+
+
+**3. 독립변수들 중에서 어떤 독립변수가 종속변수에게 가장 큰 영향력을 가질까?**<br>
+표준화된 회귀계수(Coefficient of standardized regression)<br>
+**표준화된 회귀계수의 절대값**이 가장 큰 독립변수가 종속변수에게 가장 큰 영향력을 준다.<br>
+
+
+표준화된 회귀계수 구하기<br>
+lm.beta::lm.beta(최종회귀모형)
+```{r}
+lm.beta::lm.beta(house.price.stepwise.model)
+```
+
+
+**4. 더미변수 ( Dummy Variable )**
+기본적으로 독립변수는 양적 자료이어야 함<br>
+그런데 질적 자료도 독립변수로 넣고 싶을 때에, **질적 자료를 0과 1로 구성된 양적 자료로 변환**한 것이 더미 변수이다.<br>
+
+
+질적 자료의 레벨이 2개라면, 더미 변수를 하나만 만들면 된다.<br>
+질적 자료의 레벨이 3개라면, 더미 변수를 두 개 만들어야 한다.<br>
+질적 자료의 레벨이 n개라면, 더미 변수를 n-1개 만들어야 한다.<br>
+이해를 돕기 위해서 다음의 표를 만들어보았다.<br>
+
+|레벨의 수|더미변수1|더미번수2|더미변수3|---|더미변수n-1|해석|
+|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+|2|toggle|-|-|-|-|더미변수 1이 0일때와 1일 때. 총 2개의 레벨|
+|3|toggle|toggle|-|-|-|더미변수 1과 2가 (1,0) (0,1) (0,0) 총 3개의 레벨|
+|n|toggle|toggle|toggle|toggle|toggle|더미변수 1,2,...n-1 총 n개의 레벨|
+```{r}
+# MSZoning이 RL일 때 1, 그 외에는 0이라는 더미변수를 추가하였다.
+# 이는 즉, RL일 때, SalePrice에 얼만큼의 영향을 주는지 확인하는 것이다.
+house.price.numeric$MSZoning <- ifelse(house.price$MSZoning == "RL",
+                                       1,
+                                       0)
+
+# 회귀모형 적합하기
+regression.model3 <- lm(SalePrice ~.,
+                        data = house.price.numeric)
+
+# 회귀모형 변수 선별
+regression.model3 <- step(regression.model3,
+                          direction = "both")
+
+# 다중공산성 확인해보기
+car::vif(regression.model3)
+
+# 결과보기
+summary(regression.model3)
+```
+
+
+더미변수를 통해서, **MSZoning**은 다른 독립변수들이 고정되어 있을 때에 **RL로 바뀌면** SalePrice를 약 **20624.090달러 증가**시킨다는 것을 알 수 있다.
+
+
+##회귀분석의 에러(잔차)에 대한 가정 4가지
+(1) 정규성 가정<br>
+(2) 선형성 가정<br>
+(3) 독립성 가정<br>
+(4) 등분산성 가정<br>
+
+
+1. gvlma::gvlma(최종 회귀모형)<br>
+**summary(gvlma::gvlma(최종 회귀모형))**<br>
+**파라미터 설명**<br>
+global stat : 전반적인 가정.<br>
+skewness : 왜도. 대칭성과 관련된 부분.<br>
+kurtosis : 첨도. 정규성과 관련된 부분.<br>
+Link Function : 선형성.<br>
+Heteroscedasticity : 등분산성.
+
+
+2. 독립성 검정을 해주는 함수<br>
+귀무가설 : 에러들은 각각 독립이다.<br>
+대립가설 : 에러들은 각각 독립이 아니다.<br>
+**car::durbinWatsonTest(최종 회귀모형)**<br>
+
+
+3. 등분산성 검정을 해주는 함수<br>
+귀무가설 : 등분산이다.<br>
+대립가설 : 이분산이다.<br>
+**car::ncvTest(최종 회귀모형)**<br>
+
+
+4. 정규성 검정을 해주는 함수<br>
+귀무가설 : 에러는 정규분포를 따른다.<br>
+대립가설 : 에러는 정규분포를 따르지 않는다.<br>
+residual : 잔차( 종속변수의 실제값 - 예측값 )<br>
+**shapiro.test(최종회귀모형$residuals)**
