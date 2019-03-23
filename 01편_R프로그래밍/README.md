@@ -7,5 +7,5 @@ day 4 : 데이터 핸들링 ( R에서 데이터를 다루기 좋은 함수들 )<
 day 5 : EDA<br>
 day 6 : 함수 만들기, 정규분포 관련 함수<br>
 day 7 : one sample test, two sample test<br>
-
-
+day 8 : paired test, ANOVA<br>
+day 9 : Correlation Analysis, Regression Analysis
