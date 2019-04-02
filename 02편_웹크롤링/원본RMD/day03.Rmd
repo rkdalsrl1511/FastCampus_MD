@@ -1,0 +1,405 @@
+---
+title: "fastcampus_웹크롤링_3"
+author: "huimin"
+date: "2019년 3월 28일"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#기초 설정
+```{r}
+library(httr)
+library(urltools)
+library(rvest)
+library(tidyverse)
+```
+
+
+#네이버 부동산 매매 데이터 수집
+
+크롬 - 개발자도구 - **Network**에서 **Preserve log**를 체크한 뒤, 페이지를 넘기면서 변화를 확인해야한다.<br>
+
+
+**user_agent**란?<br>
+네이버 및 일부 서비스는 사용자 에이전트를 보고 4XX를 응답하는 경우가 있기 때문에, user_agent를 함께 전송해야 하는 경우가 있다.<br>
+
+
+**방법 1 **: network탭에서 **Request headers**에서 확인한다.<br>
+![Caption](img/day03_1.jpg)
+
+
+**방법 2 **: https://whoishostingthis.com/tools/user-agent/ 에서 확인하기<br>
+**방법 3 **: google의 크롤러 사용자 에이전트 보기 ( 홈페이지 방문 )
+```{r}
+# https://land.naver.com/article/articleList.nhn?rletTypeCd=A01&tradeTypeCd=&hscpTypeCd=A01%3AA03%3AA04&rletNo=12826
+
+res <- GET(url = "https://land.naver.com/article/articleList.nhn",
+           query = list(rletTypeCd="A01",
+                        hscpTypeCd="A01:A03:A04",
+                        cortarNo="1168010500",
+                        rletNo="12826",
+                        page ="1"),
+           user_agent(agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.86 Safari/537.36"))
+
+# 결과 확인해보기
+print(res)
+
+
+# 여기까지만.
+```
+
+
+#참고
+네이버의 일부 서비스는 **referer**를 추가해야 HTTP 요청이 실행되는 경우가 있다.<br>
+referer는 크롬 개발자도구의 네트워크 탭으로 이동하여 Request Headers에서 찾는다. GET 함수나 POST 함수에서 다음과 같이 사용한다.<br>
+GET(url = "", add_headers(referer = ""))<br>
+**URL에 검색어 부분이 포함되어 있지 않다면, POST 방식을 의심하는 것이 좋다.**<br>
+
+
+#POST 방식으로 교보문고에서 검색 결과 수집하기
+POST방식을 사용하지만, 조금 특별한 부분이 있다.
+
+
+![Caption](img/day03_2.jpg)
+
+
+빨간색 네모 박스 부분은 **UCS-2 인코딩 방식**이다.<br>
+이것을 EUC-KR에서 만들려면 약간 특별한 방식이 필요하기 때문에, 이 마크다운에서는 그냥 encode된 상태를 보고 사용한다.
+```{r}
+# http://www.kyobobook.co.kr/search/SearchCommonMain.jsp
+
+res <- POST(url = "http://www.kyobobook.co.kr/search/SearchCommonMain.jsp",
+            body = list(vPstrCategory = "TOT" %>% I(),
+                        vPstrKeyWord="%26%2345936%3B%26%2351060%3B%26%2353552%3B%26%2344284%3B%26%2354617%3B" %>% I(),
+                        searchCategory = "TOT" %>% I(),
+                        searchKeyword = "%B5%A5%C0%CC%C5%CD%B0%FA%C7%D0" %>% I(),
+                        vPplace = "top" %>% I(),
+                        eventurlFlag = "0" %>% I(),
+                        eventurlDelFlag = "1" %>% I()),
+            encode = "form")
+
+# 값 확인하기
+print(res)
+
+# 데이터과학이라는 말 있는지 확인하기
+res %>%
+  content(as = "text", encoding = "EUC-KR") %>% 
+  str_detect("데이터과학")
+
+
+bookName <- res %>%
+  read_html(encoding = "EUC-KR") %>% 
+  html_nodes(css = "div.title > a > strong") %>% 
+  html_text()
+
+print(bookName)
+```
+
+
+#JAvAScript를 활용한 웹 크롤링
+#1. JavaScript 기초
+javascript는 객체 기반의 스크립트 언어이다.<br>
+javascript는 **HTML 및 CSS**와 함께 사용된다.<br>
+javascript를 이용한 웹 크롤링 관점에서는 **XHR**에 대한 기초 지식만 가지고 있으면 된다.
+
+
+**AJAX** : javascript 라이브러리 중 하나이며, 비동기 javascript이며 XML이다.<br>
+AJAX는 통신할 때 웹 페이지 전체를 새로고침하는 대신, 특정 부분의 데이터만 내려받아 보여주므로 경제적이다.<br>
+AJAX는 HTTP 요청 대신 **XHR(XML Http Request)** 객체를 사용한다.<br>
+AJAX는 **JSON 및 XML** 형태의 데이터를 주고 받는다.
+
+
+**개발자도구**에서 다음과 같이 XHR을 찾을 수 있다.
+
+
+![Caption](img/day03_3.jpg)
+
+
+#2. 페이지 네비게이션에 대한 이해
+페이지 네비게이션이란, 동일한 페이지 안에서 나누어진 게시물을 클릭을 통해서 볼 수 있도록 만든 **javaScript의 라이브러리 jQuery**에서 많이 사용된다.<br>
+페이지 네비게이션 **버튼을 클릭**했을 때 **HTTP요청 방식을 확인**하고, 각 페이지별 HTTP 요청을 실행한 후 **해당 페이지 데이터를 수집하는 과정**을 반복해야한다.<br>
+
+
+#3. JavaScript + GET 방식 and POST 방식
+**json** 형태의 데이터를 처리하려면, **jsonlite 패키지**의 **fromJSON()** 함수를 사용한다.
+
+
+(1) json만 추출하여, 리스트 자료형 객체 생성<br>
+json <- res %>% as.character() %>% fromJSON()<br>
+(2) 구조 확인하기<br>
+str(json)<br>
+(3) 데이터프레임 원소만 추출할 경우<br>
+json$poiList
+
+
+##실습1 - 한국 전화번호부에서 업종 데이터 수집하기
+**서울 강남구 일식**에 대한 데이터 수집하기<br>
+하단의 페이지 네비게이션 또한 이동하여 전체 데이터 수집하는 것이 목적이다.<br>
+**크롬 개발자도구의 doc탭**에서는, 페이지 네비게이션을 통해서 페이지를 이동해도 **새로운 문서 정보가 생성되지 않는다.**<br>
+이럴 때에는 **javascript**가 사용되었다고 추측할 수 있다.<br>
+
+
+
+아래 그림과 같이 크롬 개발자 도구의 네트워크 탭의 **XHR**로 이동하고, 페이지 네비게이션을 클릭해보면, **s_pagedata_page.asp**가 생성되어 있다.
+
+
+![Caption](img/day03_4.jpg)
+
+
+클릭하고 **Query String** 부분을 확인해본 결과, 아래 그림처럼 **page**에 대한 정보가 나와있다.
+
+
+![Caption](img/day03_5.jpg)
+
+
+더군다나, **preview**를 눌러보니, 해당 페이지에 대한 정보가 정리되어 있다. 이는 확실하게 **javascript**를 사용했음을 알 수 있다.
+
+
+![Caption](img/day03_6.jpg)
+
+
+```{r}
+# 새로운 라이브러리, jsonlite 불러오기
+library(jsonlite)
+
+
+# 키워드 정리
+upjong <- "일식"
+cityNm <- "서울"
+guNm <- "강남구"
+
+
+res <- GET(url = "http://www.isuperpage.co.kr/search/s_pagedata_page.asp",
+           query = list(searchWord = upjong %>% url_encode() %>% I(),
+                        city = cityNm %>% url_encode() %>% I(),
+                        gu = guNm %>% url_encode() %>% I(),
+                        page = 2))
+
+
+# 출력해보기
+print(res)
+
+
+# 제대로 가져왔는지 확인해보기
+res %>%
+  content(as = "text", encoding = "EUC-KR") %>% 
+  str_detect(pattern = "이도미")
+
+
+# 제이슨 데이터를 리스트 객체로 저장하기
+json <- res %>% content(as = "text", encoding = "EUC-KR") %>% fromJSON()
+
+
+# 제이슨 데이터의 형태를 확인하기
+str(json)
+```
+
+
+**fromJSON()에서 반환된 리스트 구조 파악하기**<br>
+**$ totalCount** : 일식업체의 총 개수<br>
+**$ pageSize**   : 한 페이지당 노출되는 사업체의 수<br>
+**$ currentPage**: 현재 페이지<br>
+**$ poiList** : 정보가 담긴 데이터 프레임
+
+
+```{r}
+# 수집해야할 총 페이지 수
+# ceiling()함수는 올림 함수이다.
+pages <- (as.numeric(json$totalCount) / as.numeric(json$pageSize)) %>% 
+  ceiling()
+
+
+# 결과를 저장할 데이터
+result <- data.frame()
+
+
+# 전체 페이지 크롤링을 위한 반복문 만들기
+for(i in 1:pages){
+  
+  cat("현재 ",i," 페이지 수집 중입니다.\n")
+  
+  res <- GET(url = "http://www.isuperpage.co.kr/search/s_pagedata_page.asp",
+             query = list(searchWord = upjong %>% url_encode() %>% I(),
+                          city = cityNm %>% url_encode() %>% I(),
+                          gu = guNm %>% url_encode() %>% I(),
+                          page = i))
+  
+  
+  json <- res %>% content(as = "text", encoding = "EUC-KR") %>% fromJSON()
+  
+  # 전화번호
+  Phone <- json$poiList$tel
+  
+  # 주소
+  Address <- json$poiList$t_addr
+  
+  # 상호
+  Name <- json$poiList$sangho
+  
+  # result에 저장하기
+  result <- rbind(result, data.frame(Name, Address, Phone))
+  
+  # 서버에 부하가 걸릴 경우, 차단당할 수 있기 때문에 1초간 쉬기
+  Sys.sleep(time = 1)
+}
+
+# 결과물 확인해보기
+head(result, n = 10)
+```
+
+
+##실습2 : 네이버 블로그 메인 텍스트 데이터 수집하기
+```{r}
+# referer 설정하기
+ref <- "https://section.blog.naver.com/BlogHome.nhn?directoryNo=0&currentPage=1&groupId=0"
+
+res <- GET(url = "https://section.blog.naver.com/ajax/DirectoryPostList.nhn",
+           query = list(directorySeq = "0",
+                        pageNo = "1"),
+           add_headers(referer = ref))
+
+
+# 결과물 출력해보기
+print(res)
+
+
+# 결과물 확인해보기
+res %>%
+  content(as = "text", encoding = "UTF-8") %>% 
+  str_detect(pattern = "마시따남도")
+
+
+# 첫머리에 )]}', 라는 문자 때문에 fromJSON()이 안 먹힌다.
+res %>% 
+  content(as = "text", encoding = "UTF-8") %>% 
+  str_sub(start = 1, end = 100) %>% 
+  cat()
+
+
+# 따라서 이를 지워주고, fromJSON()을 사용한다.
+json <- res %>%
+  content(as = "text", encoding = "UTF-8") %>% 
+  str_remove(pattern = "\\)\\]\\}\\',") %>% 
+  fromJSON()
+
+
+# json의 구조를 확인해본다.
+str(json)
+
+# 결과물을 저장해본다.
+blog <- json$result$postList
+
+blog <- blog %>% 
+  dplyr::select(nickname, title, postUrl)
+
+head(blog, n = 10)
+```
+
+
+##네이버 연예 뉴스 기사 수집
+```{r}
+# 오늘의 날짜
+today1 <- Sys.Date()
+today2 <- Sys.Date() %>% format(format = "%Y%m%d")
+
+
+# https://entertain.naver.com/ranking
+
+
+res <- GET(url = "https://entertain.naver.com/ranking/page.json",
+           query = list(type = "hit_total" %>% I(),
+                        date = today1))
+
+# 출력해보기
+print(res)
+
+# 확인하기
+res %>%
+  content(as = "text", encoding = "UTF-8") %>% 
+  str_detect(pattern = "로이킴")
+
+# 리스트 객체로 저장
+json <- res %>% content(as = "text", encoding = "UTF-8") %>% fromJSON()
+
+# 기사 제목 중 하나만 확인해보기
+cat(json$articles$contentsArticle$title[2])
+
+# 이런식으로, 날짜를 통해서 구분되는 웹페이지는 today만 바꿔주면서 계속 크롤링 해올 수 있다.
+```
+
+
+##실습 - 네이버 모바일 카페 메인에서 검색어로 카페글 수집
+특이한 케이스도 존재한다.<br>
+이 실습은 **POST 방식으로 html request**를 하는데, 메세지 바디에 **url_encode**를 하고 쿼리를 넣으면 **오류가 발생**한다.<br>
+가끔씩은 POST방식인데도 인자로 query = list()를 넣어야 할 때도 있었다.<br>
+아마도 **Ajax**일 경우에는 **url_encode를 할 필요가 없었**던 것 같다.<br>
+```{r}
+searchword <- "청주 미친만두"
+
+res <- POST(url = "https://m.cafe.naver.com/SectionArticleSearchAjax.nhn",
+            body = list(page = 2,
+                        query = searchword %>% I()))
+
+
+# 출력해보기
+print(res)
+
+# 확인하기
+res %>%
+  content(as = "text", encoding = "UTF-8") %>% 
+  str_detect(pattern = "미친만두")
+
+# 리스트 객체로 저장하기
+json <- res %>%
+  content(as = "text", encoding = "UTF-8") %>% 
+  fromJSON()
+
+
+# str()을 통해 확인해본 결과, totalcount = 337이고, 1페이지당 10개의 게시물들이 있다.
+
+pages <- (json$result$totalCount / json$result$perPage) %>% ceiling()
+
+result <- data.frame()
+
+
+for(i in 1:pages){
+  
+  res <- POST(url = "https://m.cafe.naver.com/SectionArticleSearchAjax.nhn",
+            body = list(page = i,
+                        query = searchword %>% I()))
+  
+  json <- res %>%
+    content(as = "text", encoding = "UTF-8") %>%
+    fromJSON()
+  
+  
+  cafeName <- json$result$searchItemList$cafeName
+  
+  Subject <- json$result$searchItemList$subject
+  
+  Contents <- json$result$searchItemList$content
+  
+  linkUrl <- json$result$searchItemList$linkUrl
+  
+  
+  result <- rbind(result, data.frame(cafeName,
+                                     Subject,
+                                     Contents,
+                                     linkUrl))
+  
+  Sys.sleep(time = 1)
+  
+}
+
+head(result, n = 1)
+```
+
+
+#참고 - tryCatch() 함수
+반복문 실행 중 에러 발생할 경우, 반복문 실행이 종료되기 때문에, tryCatch() 함수를 유용하게 사용할 수 있다.<br>
+
+
+tryCatch({실행하고자 하는 라인들}, error = function(e) e)
