@@ -1,0 +1,395 @@
+---
+title: "fastcampus_À¥Å©·Ñ¸µ_4"
+author: "huimin"
+date: "2019³â 4¿ù 3ÀÏ"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#±âÃÊ ¼³Á¤ÇÏ±â
+```{r}
+library(tidyverse)
+library(httr)
+library(rvest)
+library(readr)
+library(urltools)
+```
+
+
+#RSelenium ÆĞÅ°Áö
+SeleniumÀº À¥ ºê¶ó¿ìÀú¸¦ Á÷Á¢ Á¦¾îÇÏ¿©, À¥ ¾ÖÇÃ¸®ÄÉÀÌ¼Ç Å×½ºÆ®¸¦ ÀÚµ¿È­ÇÏ·Á´Â ¸ñÀûÀ¸·Î ÁÖ·Î »ç¿ëµÈ´Ù.<br>
+RSelenium ÆĞÅ°Áö´Â R¿¡¼­ SeleniumÀ» µ¿ÀÛ½ÃÅ³ ¶§ »ç¿ëÇÑ´Ù.<br>
+**cmd ¶Ç´Â terminal¿¡¼­ Selenium Server°¡ Á¦´ë·Î ÀÛµ¿ÇÏ´ÂÁö È®ÀÎÇØ¾ßÇÑ´Ù.**<br>
+**´Ü, ÃÖ±Ù¿¡´Â ±×·² ÇÊ¿ä°¡ ¾ø¾îÁ³´Ù.** À¥ µå¶óÀÌ¹ö ¼³Á¤ÀÌ °¡´ÉÇÏ±â ¶§¹®ÀÌ´Ù.<br>
+**À¥ µå¶óÀÌ¹ö**ÀÇ Á¾·ù·Î´Â, **Å©·Ò°ú ÆÒÅÒ µå¶óÀÌ¹ö** µîÀÌ ÀÖ´Ù.<br>
+
+
+**½ÇÇàÀÌ ¾ÈµÇ±æ·¡ ´õ ÀÚ¼¼È÷ ¾Ë¾Æº» °á°ú ´ÙÀ½°ú °°´Ù.**<br>
+¼¿·¹´Ï¾öÀ» ½ÇÇàÇÏ´Â ¹æ¹ıÀº 2°¡Áö°¡ ÀÖ´Âµ¥,<br>
+(1) ¼öµ¿À¸·Î Á÷Á¢ selenium server standalone°ú chrome driverÀÇ ¹öÀüÀ» ¼±ÅÃÇÏ¿© ¼³Ä¡ÇÏ°í, cmd¿¡¼­ selenium server¸¦ ½ÇÇàÇÏ´Â ¹æ¹ı<br>
+(2) RSelenium ÆĞÅ°ÁöÀÇ rsDriver¸¦ »ç¿ëÇÏ¿© À¥ µå¶óÀÌºê °´Ã¼¸¦ ¸¸µé¾î¼­ ½ÇÇàÇÏ´Â ¹æ¹ı<br>
+ÀÌ ÀÖ´Ù. (1)¹øÀÇ ÀåÁ¡Àº ÀÚ½ÅÀÇ ÄÄÇ»ÅÍ¿¡ ¸Â´Â ¹öÀüµéÀ» Á÷Á¢ ¼±ÅÃÇÏ°í ¼³Ä¡ÇÒ ¼ö ÀÖ´Ù´Â ÀåÁ¡ÀÌ ÀÖ°í, (2)¹øÀÇ °æ¿ì´Â ¹ø°Å·Î¿î ¼³Ä¡°¡ ÇÊ¿ä ¾ø´Ù´Â ÀåÁ¡ÀÌ ÀÖ´Ù.<br> 
+´Ù¸¸, (2)¹ø ¶ÇÇÑ ÀÎÀÚ¿¡ ÇöÀç **ÀÚ½ÅÀÇ Å©·Ò ¹öÀü°ú ÄÄÇ»ÅÍ »ç¾ç¿¡ ¸Â´Â ¿É¼Ç**µéÀ» Áı¾î ³Ö¾î¾ß ÇÑ´Ù.
+
+
+##½Ç½À1 - ¸®¸ğÆ® µå¶óÀÌ¹ö ¼³Á¤ÇÏ±â
+```{r}
+library(rJava)
+library(RSelenium) # rsDriver¸¦ »ç¿ëÇÏ±â À§ÇÑ ÆĞÅ°Áö
+library(binman) # list_versions() ÇÔ¼ö¸¦ »ç¿ëÇÏ±â À§ÇÑ ÆĞÅ°Áö
+
+
+# ¹æ¹ı(1) : remoteDriver »ç¿ëÇÏ±â
+chrome <- wdman::chrome(port = 4445L,
+                        version = "73.0.3683.68")
+
+# ¸®¸ğÆ® µå¶óÀÌ¹ö¸¦ ¼³Á¤ÇÏ±â
+remote <- remoteDriver(port = 4445L, browserName = 'chrome')
+
+
+# ¹æ¹ı(2) : rsDriver »ç¿ëÇÏ±â - Àß Æ¨°Ü¼­ ºñÃßÃµÇÔ
+# ÀÚ½Å¿¡°Ô ¸Â´Â Å©·Ò µå¶óÀÌ¹ö ¹öÀüÀ» Ã£¾Æ¾ßÇÑ´Ù.
+# remote <- rsDriver(port = 4445L, 
+#                    browser = "chrome",
+#                    chromever = "73.0.3683.68") %>% `[[`("client")
+```
+
+
+##½Ç½À2 - ±âÃÊÀûÀÎ ¸®¸ğÆ® ÄÁÆ®·ÑÇÏ±â
+```{r}
+# À¥ ºê¶ó¿ìÀú ¿­±â
+remote$open()
+
+# ÆäÀÌÁö ÀÌµ¿ÇÏ±â
+remote$navigate(url = "https://www.naver.com")
+
+# ÆäÀÌÁö HTML ¹®¼­ °¡Á®¿À±â
+res <- remote$getPageSource() %>% `[[`(1)
+
+# °¡Á®¿Â ÆäÀÌÁö¿¡¼­ ½Ç½Ã°£ °Ë»ö¾î ºÎºĞ »Ì¾Æº¸±â
+example <- res %>%
+  read_html() %>% 
+  html_nodes(css = "span.ah_k") %>% 
+  html_text()
+
+# Ãâ·ÂÇØº¸±â
+example[1:10]
+
+# ³×ÀÌ¹ö °Ë»ö¾îÃ¢ ÁöÁ¤ÇÏ±â
+query <- remote$findElement(using = "xpath", value = "//*[@id='query']")
+
+# °Ë»ö¾î Ã¢¿¡ »ç°ú ÀÔ·ÂÇØº¸±â
+query$sendKeysToElement(sendKeys = list('»ç°ú'))
+
+# °Ë»ö ¹öÆ° ÁöÁ¤ÇÏ±â
+queryBtn <- remote$findElement(using = "xpath", 
+                               value = "//*[@id='search_btn']")
+
+# °Ë»ö ¹öÆ° Å¬¸¯ÇÏ±â
+queryBtn$clickElement()
+
+# µÚ·Î°¡±â
+remote$goBack()
+# ¾ÕÀ¸·Î°¡±â
+remote$goForward()
+# »õ·Î°íÄ§
+remote$refresh()
+```
+
+
+##½Ç½À3 - ±³º¸¹®°í ·Î±×ÀÎÇÏ±â
+```{r}
+# ±³º¸¹®°í·Î ÀÌµ¿ÇÑ´Ù.
+remote$navigate(url = "http://www.kyobobook.co.kr")
+
+# ÇöÀç ÄÁÆ®·Ñ ÁßÀÎ À©µµ¿ì Ã¢µéÀÇ ¾ÆÀÌµğ¸¦ ¾ò´Â´Ù.
+window.id <- remote$getWindowHandles()
+print(window.id)
+
+# ²ô°í½ÍÀº À©µµ¿ì Ã¢À¸·Î ½ºÀ§ÄªÇÏ±â
+remote$switchToWindow(windowId = window.id[[2]])
+
+# ÇØ´ç ¿øµµ¿ì Ã¢ ´İ±â
+remote$closeWindow()
+
+# ´Ù½Ã Á¶ÀÛÇÒ À©µµ¿ì Ã¢À¸·Î ÀÌµ¿ÇÏ±â
+remote$switchToWindow(windowId = window.id[[1]])
+
+# ·Î±×ÀÎ ¹öÆ°ÀÇ À§Ä¡ ÁöÁ¤ÇÏ±â
+login <- remote$findElement(using = "xpath", value = "//*[@id='gnbLoginInfoList']/li[1]/a")
+
+# ·Î±×ÀÎ Å¬¸¯
+login$clickElement()
+
+# °æ°í ¹®±¸ Ãâ·ÂÇÏ±â
+# remote$getAlertText()
+
+# °æ°í ¼ö¿ëÇÏ±â
+# remote$acceptAlert()
+
+# ºê¶ó¿ìÁ® ´İ±â
+remote$close()
+```
+
+
+#·Î±×ÀÎ ÄíÅ° È°¿ë ¹æ¹ı
+ÄíÅ°¶õ À¥ »çÀÌÆ®¿¡ ¹æ¹®ÇßÀ» ¶§ À¥ ¼­¹ö°¡ Å¬¶óÀÌ¾ğÆ® ÄÄÇ»ÅÍ¿¡ ÀúÀåÇØ³õ´Â ÀÛÀº ÆÄÀÏÀ» ÀÇ¹ÌÇÑ´Ù.<br>
+À¥ ¼­¹ö°¡ ÀúÀåÇØ³õÀº ÄíÅ°¸¦ ¾òÀ¸¸é **·Î±×ÀÎ »óÅÂ·Î HTTP¿äÃ»**ÀÌ °¡´ÉÇØÁø´Ù.<br>
+
+
+ÀÏ¹İÀûÀ¸·Î **POST ¹æ½Ä**ÀÌ »ç¿ëµÈ´Ù.<br>
+res <- POST(url = "·Î±×ÀÎ URL",<br>
+body = list("·Î±×ÀÎ ¾ÆÀÌµğ ÆÄ¶ó¹ÌÅÍ¸í" = "·Î±×ÀÎ ¾ÆÀÌµğ",<br>
+"·Î±×ÀÎ ºñ¹Ğ¹øÈ£ ÆÄ¶ó¹ÌÅÍ¸í" = "·Î±×ÀÎ ºñ¹Ğ¹øÈ£"))<br>
+
+
+·Î±×ÀÎ¿¡ ¼º°øÇÏ¸é ÀÀ´ä Çì´õ¿¡¼­ ÄíÅ°¸¦ ¾òÀ» ¼ö ÀÖ´Ù.<br>
+ÄíÅ°¸¦ ÀúÀå ÈÄ ´ÙÀ½ HTTP ¿äÃ» ½Ã Ãß°¡ÇÏ¸é ·Î±×ÀÎ »óÅÂÀÇ HTMLÀ» ¾òÀ» ¼ö ÀÖ´Ù.<br>
+**cookies(res)**<br>
+
+
+cookies()ÇÔ¼ö´Â °á°ú·Î **¸®½ºÆ®Çü °´Ã¼**¸¦ ¹İÈ¯ÇÑ´Ù.<br>
+**unlist()**¸¦ ÅëÇØ¼­ º¤ÅÍ·Î º¯È¯ÇØÁØ´Ù.<br>
+mycookies <- cookies(res) %>% unlist()<br>
+
+
+ÄíÅ°¸¦ ÀúÀåÇÏ¿´´Ù¸é ´ÙÀ½°ú °°ÀÌ »ç¿ëÇÑ´Ù.<br>
+res <- GET("°ü½É URL", set_cookies(.cookies = mycookies))
+
+
+##½Ç½À4 - ·Î±×ÀÎ ÄíÅ°¸¦ ÀÌ¿ëÇÏ¿© ·Î±×ÀÎ »óÅÂ·Î µ¥ÀÌÅÍ ¼öÁıÇÏ±â
+```{r}
+
+# ÀÏ´Ü ÀâÇÃ·¹´Ö¿¡ µé¾î°¡¼­ ·Î±×ÀÎ ÆäÀÌÁö·Î °£´Ù.
+# ±×ÈÄ, presereve log¸¦ Ã¼Å©ÇÏ°í ·Î±×ÀÎÀ» ÇÏ¸é sign_inÀÌ¶ó´Â ¹®¼­°¡ ³ª¿À´Âµ¥,
+# ÀÌ°ÍÀÌ ¹Ù·Î ·Î±×ÀÎ ÄíÅ°ÀÌ´Ù. ÀÌ°ÍÀÇ Çü½ÄÀ» post ¹æ½ÄÀ¸·Î requestÇÏ¸é µÈ´Ù.
+res <- POST(url = "https://www.jobplanet.co.kr/users/sign_in",
+            body = list("user[email]" = "rkdalsrl1511@naver.com",
+                        "user[password]" = "s1352313"))
+
+# °á°úº¸±â
+print(res)
+
+# ·Î±×ÀÎ ÄíÅ° °´Ã¼ ¼³Á¤ÇÏ±â
+my.cookies <- set_cookies(.cookies = unlist(cookies(res)))
+
+# ·Î±×ÀÎÀ» ÇØ¾ß¸¸ µé¾î°¥ ¼ö ÀÖ´Â ÆäÀÌÁö
+res <- GET(url = "https://www.jobplanet.co.kr/profile/settings",
+           config = list(cookies = my.cookies))
+
+# °á°úº¸±â
+print(res)
+
+# È®ÀÎÇØº¸±â
+res %>%
+  content(as = "text", encoding = "UTF-8") %>% 
+  str_detect(pattern = "rkdalsrl1511")
+```
+
+
+#stringr ÆĞÅ°Áö ÁÖ¿ä ÇÔ¼ö »ç¿ë¹ı
+stringr ÆĞÅ°Áö´Â ¹®ÀÚ µ¥ÀÌÅÍ¸¦ ´Ù·ç´Â µ¥ ÇÊ¿äÇÑ ÁÖ¿ä ÇÔ¼ö¸¦ ´ã°í ÀÖ´Ù.<br>
+
+
+|ÇÔ¼ö|±â´É|
+|:-:|:-:|
+|str_detect(pattern = "")|Ã£°íÀÚ ÇÏ´Â ÆĞÅÏÀÌ Æ÷ÇÔµÇ¾î ÀÖ´ÂÁö È®ÀÎ|
+|str_remove(pattern = "")|ÇØ´ç ÆĞÅÏÀ» ÇÑ ¹ø »èÁ¦|
+|str_remove_all(pattern = "")|ÇØ´ç ÆĞÅÏÀ» ¸ğµÎ »èÁ¦|
+|str_replace(pattern = "", replacement = "")|ÇØ´ç ÆĞÅÏÀ» ÇÑ ¹ø ±³Ã¼|
+|str_replace_all(pattern = "", replacement = "")|ÇØ´ç ÆĞÅÏ ÀüºÎ ±³Ã¼|
+|str_extract(pattern = "")|ÇØ´ç ÆĞÅÏÀ» ÇÑ ¹ø ÃßÃâ|
+|str_extract_all(pattern = "")|ÇØ´ç ÆĞÅÏÀ» ÀüºÎ ÃßÃâ|
+|str_sub(start = ¼ıÀÚ, end = ¼ıÀÚ)|startºÎÅÍ end±îÁö °¡Á®¿Â´Ù.|
+|str_c(args, sep = "")|µÎ °³ ÀÌ»óÀÇ ¹®ÀÚ¿­À» ¹­´Â´Ù. sepÀ» ÅëÇØ ±¸ºĞÀÚ ¼³Á¤|
+|str_split(pattern = "")|ÇÏ³ªÀÇ ¹®ÀÚ¿­À» ±¸ºĞÀÚ¸¦ ±âÁØÀ¸·Î ºĞ¸®|
+|str_trim()|¾ç ¿·ÀÇ ºÒÇÊ¿äÇÑ °ø¹éµéÀ» Á¦°ÅÇÑ´Ù.|
+
+
+##½Ç½À - stringr ÆĞÅ°Áö ½Ç½ÀÇÏ±â
+```{r}
+library(stringr)
+library(magrittr)
+
+# ½Ç½ÀÇÒ ¹®Àå
+string <- "µ¿ÇØ¹°°ú ¹éµÎ»êÀÌ ¸¶¸£°í ´âµµ·Ï ÇÏ´À´ÔÀÌ º¸¿ìÇÏ»ç ¿ì¸®³ª¶ó ¸¸¼¼"
+
+
+
+# ºü¸£°Ô ÇÑ ¹ø ¾¿
+
+string %>% str_detect(pattern = "¹éµÎ»ê")
+string %>% str_remove(pattern = "¹éµÎ»ê")
+string %>% str_replace_all(pattern = " ", replacement = "/")
+string %>% str_extract_all(pattern = "ÀÌ")
+string %>% str_sub(start = 1, end = 10)
+str_c("¾È³ç","ÇÏ¼¼¿ä", sep = " ")
+string %>% str_split(pattern = " ")
+str_trim("                 ¾Æ            ")
+```
+
+
+#Á¤±ÔÇ¥Çö½Ä
+**stringr ÆĞÅ°Áö ÇÊ¿äÇÏ´Ù!**<br>
+Á¤±ÔÇ¥Çö½ÄÀº **ÆĞÅÏÀ» °®´Â ¹®ÀÚ¿­**ÀÇ ÁıÇÕÀ» Ç¥ÇöÇÏ´Â µ¥ »ç¿ëÇÏ´Â ¾ğ¾îÀÌ´Ù.<br>
+´Ù¸¥ ¾ğ¾î¿¡µµ Á¤±ÔÇ¥Çö½ÄÀÌ ÀÖ´Ù. R¿¡¼­´Â **escape ¹®ÀÚ¸¦ µÎ ¹ø »ç¿ëÇØ¾ß ÇÑ´Ù**´Â Æ¯Â¡ÀÌ ÀÖ´Ù.<br>
+Á¤±ÔÇ¥Çö½Ä¸¸À» µû·Î Á¤¸®ÇÑ Ã¥ÀÌ ÀÖÀ» Á¤µµ·Î ±× ³»¿ëÀÌ º¹ÀâÇÏ°í ¹æ´ëÇÏ´Ù.<br>
+**Á¤±ÔÇ¥Çö½ÄÀº ÀÏ¹İÀûÀÎ ÆĞÅÏ »ç¿ë¹ı°ú È¥¿ë**ÇØ¼­ »ç¿ëÇØµµ ¹®Á¦°¡ ¾ø´Ù.
+
+
+**Á¤±ÔÇ¥Çö½Ä ±âº» ¹®¹ı 1**
+
+
+|Á¤±ÔÇ¥Çö½Ä|ÀÇ¹Ì|Á¤±ÔÇ¥Çö½Ä|ÀÇ¹Ì|
+|:-:|:-:|:-:|:-:|
+|\\\\w|¿µ¼Ò¹®ÀÚ, ¿µ´ë¹®ÀÚ, ¼ıÀÚ, _(¾ğ´õ¹Ù)|.|¸ğµç ¹®ÀÚ(°ø¹éÆ÷ÇÔ\\r, \\n Á¦¿Ü)|
+|\\\\d|¼ıÀÚ|ÆÄÀÌÇÁ¹®ÀÚ|¾Õ µÚ ¹®ÀÚ¿­µéÀ» or Á¶°ÇÀ¸·Î ÁöÁ¤|
+|\\\\s|°ø¹é, \\r\\n(°³Çà), \\t(ÅÇ)|[ ]|[ ]¾È ¹®ÀÚµéÀ» or Á¶°ÇÀ¸·Î ÁöÁ¤|
+|\\\\W|\\\\wÀÇ ¹İ´ë|[a-z], [A-Z]|¿µ¾î ¼Ò¹®ÀÚ, ¿µ¾î ´ë¹®ÀÚ|
+|\\\\D|\\\\dÀÇ ¹İ´ë|[0-9]|¼ıÀÚ|
+|\\\\S|\\\\sÀÇ ¹İ´ë|[¤¡ - ¤Ó], [°¡ - ÆR]|ÇÑ±Û ÀÚÀ½/¸ğÀ½, ÇÑ±Û¹®ÀÚ|
+|\\\\p{Hangul}|ÇÑ±Û|[^]|´ë°ıÈ£ ¾È ÆĞÅÏ Á¦¿Ü(not)|
+
+
+**Á¤±ÔÇ¥Çö½Ä ±âº» ¹®¹ı 2**
+
+
+|Á¤±ÔÇ¥Çö½Ä|ÀÇ¹Ì|Á¤±ÔÇ¥Çö½Ä|ÀÇ¹Ì|
+|:-:|:-:|:-:|:-:|
+|+|¾Õ ÆĞÅÏÀÌ 1~¹«ÇÑ´ë ¿¬¼Ó ÀÏÄ¡|^|¹®ÀÚ¿­ÀÇ ½ÃÀÛ À§Ä¡¸¦ ÁöÁ¤|
+|*|¾Õ ÆĞÅÏÀÌ 0~¹«ÇÑ´ë ¿¬¼Ó ÀÏÄ¡|$|¹®ÀÚ¿­ÀÇ ³¡ À§Ä¡¸¦ ÁöÁ¤|
+|?|¾Õ ÆĞÅÏÀÌ ¾ø°Å³ª 1¹ø¸¸ ÀÏÄ¡|\\\\b|¹®ÀÚ¿­ Áß À½ÀıÀÇ ½ÃÀÛ À§Ä¡ ÁöÁ¤|
+|{n}|¾Õ ÆĞÅÏÀÌ n¹ø ¿¬¼Ó ÀÏÄ¡|\\\\B|\\\\bÀÇ ¹İ´ë|
+|{n,}|¾Õ ÆĞÅÏÀÌ n~¹«ÇÑ´ë ¿¬¼Ó ÀÏÄ¡|( )|( ) ¾È ¹®ÀÚ¿­À» ±×·ìÀ¸·Î ÁöÁ¤|
+|{n,m}|¾Õ ÆĞÅÏÀÌ n~m¹ø ¿¬¼Ó ÀÏÄ¡|\\\\¼ıÀÚ|±×·ìÀÇ ¹øÈ£¸¦ °¡¸®Å´(¿ªÂüÁ¶)|
+|°ÔÀ¸¸¥ ¼ö·®ÀÚ|Å½¿åÀû ¼ö·®ÀÚ µÚ¿¡ ?¸¦ ºÙÀÓ|A(?=B)|BÆĞÅÏ ¾ÕÀÇ AÆĞÅÏ ÁöÁ¤|
+|\\\\¸ŞÅ¸¹®ÀÚ|¸ŞÅ¸¹®ÀÚ ¸ğ½À ±×´ë·Î ÁöÁ¤|(?<=A)B|AÆĞÅÏ µÚÀÇ BÆĞÅÏ ÁöÁ¤|
+
+
+##½Ç½À - Á¤±ÔÇ¥Çö½Ä
+```{r}
+# ½Ç½À¿ë ¹®ÀÚ¿­
+string <- "abCD°¡³ª123 \r\n\t-_,./?\\"
+
+# ¹®ÀÚ¿­ ±æÀÌ È®ÀÎ
+nchar(string)
+
+# \\w : ¿µ¾î ´ë¼Ò¹®ÀÚ, ÇÑ±Û, ¼ıÀÚ ¹× _
+string %>% str_extract_all(pattern = "\\w")
+# \\d : ¼ıÀÚ
+string %>% str_extract_all(pattern = "\\d")
+# \\s : °ø¹é°ú °³Çà ÅÇÀ» ÁöÁ¤
+string %>% str_extract_all(pattern = "\\s")
+# \\p{Hangul} : ÇÑ±Û¸¸
+string %>% str_extract_all(pattern = "\\p{Hangul}")
+# . : ¸ğµç ¹®ÀÚ
+string %>% str_extract_all(pattern = ".")
+
+
+# »ç½Ç ´ë¹®ÀÚµéÀº Å« ÀÇ¹Ì°¡ ¾ø´Ù.
+# \\W : \\wÀÇ ¹İ´ë
+string %>% str_extract_all(pattern = "\\W")
+# \\D : \\dÀÇ ¹İ´ë
+string %>% str_extract_all(pattern = "\\D")
+# \\S : \\sÀÇ ¹İ´ë
+string %>% str_extract_all(pattern = "\\S")
+```
+
+
+##½Ç½À2 - orÁ¶°ÇÀ¸·Î ÆĞÅÏ ÁöÁ¤
+```{r}
+# ½Ç½À¿ë ¹®ÀÚ¿­
+string1 <- c("abc","bcd","cde","def")
+string2 <- "abcdEFGH0123¤¡¤¿¤¤¤Á°¡³ª´Ù¶ó"
+
+# ¾Õ°ú µÚÀÇ ¹®ÀÚ¸¦ or·Î ÁöÁ¤ÇÑ´Ù.
+string1 %>% str_extract(pattern = "ab|cd")
+# ´ë°ıÈ£ ¾È ¹®ÀÚµéÀ» or·Î ÁöÁ¤ÇÑ´Ù.
+string1 %>% str_extract(pattern = "[af]")
+# ¿µ¾î ¼Ò¹®ÀÚ ÁöÁ¤
+string2 %>% str_extract_all(pattern = "[a-z]")
+# ¿µ¾î ´ë¹®ÀÚ ÁöÁ¤
+string2 %>% str_extract_all(pattern = "[A-Z]")
+# ¼ıÀÚ¸¸ ÁöÁ¤
+string2 %>% str_extract_all(pattern = "[0-9]")
+# ÇÑ±Û ÀÚÀ½/¸ğÀ½ ÁöÁ¤
+string2 %>% str_extract_all(pattern = "[¤¡-¤Ó]")
+# ÇÑ±Û ÁöÁ¤
+string2 %>% str_extract_all(pattern = "[°¡-ÆR]")
+
+
+# ´ë°ıÈ£ ¾ÈÀÇ ¹®ÀÚ Á¦¿ÜÇÏ±â (not)
+string2 %>% str_extract_all(pattern = "[^¤¡-¤Ó°¡-ÆR]")
+```
+
+
+##½Ç½À3 - Å½¿åÀû ¼ö·®ÀÚ¿Í °ÔÀ¸¸¥ ¼ö·®ÀÚ
+```{r}
+# Å½¿åÀû ¼ö·®ÀÚ
+string1 <- c("12","345","°¡³ª","´Ù¶ó¸¶")
+
+# + : ¾Õ ÆĞÅÏÀÌ 1~¹«ÇÑ´ë ¿¬¼Ó ÀÏÄ¡
+string1 %>% str_extract(pattern = "\\d+")
+# * : ¾Õ ÆĞÅÏÀÌ 0~¹«ÇÑ´ë ¿¬¼Ó ÀÏÄ¡
+string1 %>% str_extract(pattern = "\\d*")
+# ? : ¾Õ ÆĞÅÏÀÌ 0~1È¸ ÀÏÄ¡
+string1 %>% str_extract(pattern = "\\d?")
+# {n} : ¾Õ ÆĞÅÏÀÌ n¹ø ÀÏÄ¡
+string1 %>% str_extract(pattern = "\\d{2}")
+# {n,} : ¾Õ ÆĞÅÏÀÌ n~¹«ÇÑ´ë ¿¬¼Ó ÀÏÄ¡
+string1 %>% str_extract(pattern = "\\p{Hangul}{3,}")
+# {n,m} : ¾Õ ÆĞÅÏÀÌ n~m¹ø ÀÏÄ¡
+string1 %>% str_extract(pattern = "\\d{1,2}")
+
+
+# °ÔÀ¸¸¥ ¼ö·®ÀÚ
+# Å½¿åÀû ¼ö·®ÀÚ µÚ¿¡ ?¸¦ ºÙÀÌ¸é ÃÖ¼Ò ´ÜÀ§·Î ÀÏÄ¡ÇÒ ¶§¸¶´Ù ÆĞÅÏÀ» Ã£´Â´Ù.
+string2 <- "<p>ÀÌ°ÍÀº<br>HTML<br>ÀÔ´Ï´Ù</p>"
+
+# Å½¿åÀû ¼ö·®ÀÚ¸¦ Ãß°¡ÇÏÁö ¾Ê¾ÒÀ» °æ¿ì
+string2 %>% str_extract_all(pattern = "<.+>")
+# °ÔÀ¸¸¥ ¼ö·®ÀÚ¸¦ Ãß°¡ÇÏ¿´À» °æ¿ì
+string2 %>% str_extract_all(pattern = "<.+?>")
+```
+
+
+##½Ç½À4 - ±âÅ¸ Á¤±ÔÇ¥Çö½Ä
+```{r}
+string1 <- "¿ì¸®Áı °­¾ÆÁö´Â (º¹½½°­¾ÆÁö)ÀÔ´Ï´Ù."
+string2 <- c("°¡³ª´Ù","³ª´Ù¶ó","°¡´Ù¶ó","¶ó°¡³ª","´Ù¶ó°¡")
+string3 <- "°¡¹æ¿¡ °¡À§¿Í Á¾ÀÌ ÂÉ°¡¸®¸¦ ³Ö¾î¶ó"
+string4 <- "¸Å°æºÎµ¿»ê°ú ÇÑ°æºÎµ¿»êº¸´Ù KBºÎµ¿»êÀÌ ´õ ÀÚ¼¼ÇÕ´Ï´Ù."
+string5 <- c("100¿ø","300´Ş·¯","450¿£","800À§¾È")
+
+# escape ¹®ÀÚ : \\¸¦ ¾Õ¿¡ ºÙÀÌ¸é µÈ´Ù.
+string1 %>% str_extract(pattern = "\\(\\w+\\)")
+
+
+# ^ : ¹®ÀÚ¿­ÀÇ ½ÃÀÛ À§Ä¡¸¦ ÁöÁ¤ÇÏ¸ç, [^]¿Í Çò°¥¸®Áö ¸»ÀÚ.
+string2 %>% str_extract(pattern = "^°¡")
+# $ : ¹®ÀÚ¿­ÀÇ ³¡ À§Ä¡¸¦ ÁöÁ¤ÇÑ´Ù.
+string2 %>% str_extract(pattern = "°¡$")
+# \\b : ¹®ÀÚ¿­ Áß À½ÀıÀÇ ½ÃÀÛ À§Ä¡¸¦ ÁöÁ¤ÇÑ´Ù.
+string3 %>% str_remove_all(pattern = "\\b°¡")
+# \\B : \\b°¡ ¾Æ´Ñ À§Ä¡¸¦ ÁöÁ¤ÇÑ´Ù.
+string3 %>% str_remove_all(pattern = "\\B°¡")
+
+
+# ( ) : ¼Ò°ıÈ£ ¾È ¹®ÀÚ¿­À» ±×·ìÀ¸·Î ÁöÁ¤ÇÑ´Ù.
+string4 %>% str_remove_all(pattern = "(ºÎµ¿»ê)")
+# \\¼ıÀÚ : ±×·ìÀÇ ¹øÈ£¸¦ °¡¸®Å²´Ù. ¹®ÀÚ¿­¿¡¼­ÀÇ ±×·ì ¼³Á¤
+# ÆĞÅÏ¿¡ Æ÷ÇÔµÇ´Â °ÍµéÀ» ÀüºÎ ±×·ìÀ¸·Î ÇØ¹ö¸®´Â ¸ğ¾çÀÌ´Ù.
+string4 %>% str_extract(pattern = "(ºÎµ¿»ê).+\\1")
+string4 %>% str_extract(pattern = "(ºÎµ¿»ê).+?\\1")
+
+
+# A(?=B) : BÆĞÅÏ ¾ÕÀÇ AÆĞÅÏÀ» ÁöÁ¤ÇÑ´Ù. (Àü¹æÅ½»ö)
+string5 %>% str_extract(pattern = "\\d+(?=\\p{Hangul}+)")
+
+# (?<=A)B : AÆĞÅÏ µÚÀÇ BÆĞÅÏÀ» ÁöÁ¤ÇÑ´Ù. (ÈÄ¹æÅ½»ö)
+string5 %>% str_extract(pattern = "(?<=\\d)\\p{Hangul}+")
+```
