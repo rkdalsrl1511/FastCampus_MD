@@ -1,0 +1,332 @@
+---
+title: "fastcampus_머신러닝_2"
+author: "huimin"
+date: "2019년 5월 22일"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#기초설정
+```{r}
+library(tidyverse)
+library(readr)
+library(stringr)
+library(rpart) # 의사 결정 나무
+library(caret) # 혼동행렬을 위한 패키지
+library(e1071) # confusionMatrix 함수를 사용하기 위한 패키지
+library(MLmetrics) # F1 점수 사용하기
+library(pROC) # AUROC 확인하기
+library(kknn) # kknn() 함수
+library(class) # knn() 함수
+library(ROSE) # ovun.sample() 함수
+```
+
+
+#K-최근접이웃 알고리즘의 개요
+
+
+- 일부 기계학습 알고리즘은 데이터 간 **유사도 혹은 비유사도**를 측정한다.
+- 유사도 기준으로는 **거리(Distance)**가 주로 이용되는데, 예컨데 군집분석의 경우 데이터 간 거리가 가까울수록 유사도가 높다고 판단하여 같은 군집으로 묶는다.
+- **k-최근접이웃 알고리즘**도 개별 데이터 간 거리를 측정하여 가장 가까운 k개 이웃 데이터를 선별한 다음, 이웃 데이터의 목표변수로부터 **다수결(범주형)** 또는 **평균(연속형)** 등을 계산하여 해당 데이터의 목표변수를 추정하는 방식을 채택한다.
+
+가장 기초적인 알고리즘으로서, 가까이에 있으면 같은 그룹이라는 매우 간단한 수학적 지식만을 사용한다.
+
+
+##K-최근접이웃 알고리즘의 특징
+
+
+- **사례 기반 추론 방법**에 속한다. 과거에 있었던 사례들의 결과를 바탕으로 새로운 사례의 결과를 예측하는 기법이다.
+- 데이터 간 유사도 척도로 **거리**를 사용하다.
+- **비모수적 알고리즘**이므로, 분류모형과 회귀모형 모두 사용할 수 있다.
+- K를 작은 숫자로 설정하면, 데이터의 범위가 좁아지므로 **이상치에 민감해진다.**
+- K를 큰 숫자로 설정하면, 데이터의 범위가 커지므로 인접한 조금 더 관대한 모형이 만들어진다.
+- 일반적으로 훈련용 데이터셋 건수의 제곱근을 k로 사용하며, 더 최적해를 구하기 위해서는 교차검증을 통한 튜닝을 한다.
+
+
+이어서
+
+
+- 거리를 기준으로 **가중치**를 부여할 수도 있다.
+- 거리가 가까울수록 긴밀한 관계라고 판단할 경우, 더 높은 가중치를 부여하는 것이 좋다.
+
+
+#유사도의 척도, 거리의 종류
+
+
+![Caption](img/day02_1.jpg)
+
+
+![Caption](img/day02_2.jpg)
+
+
+![Caption](img/day02_3.jpg)
+
+
+![Caption](img/day02_4.jpg)
+
+
+R 기본함수인 **dist()**를 이용하면 다양한 거리를 계산할 수 있다.
+
+
+|dist의 인자|설명|
+|:-:|:-:|
+|x|거리를 계산할 숫자형 행렬, 데이터프레임 할당|
+|method|"euclidean", "maximum", "manhattan", "minkowski"|
+|p|minkowski를 할당했을 경우, 지수에 해당하는 숫자. default = 2|
+|diag|TRUE를 할당하면 행렬로 출력되는 결과에서 대각원소를 0으로 설정|
+|upper|TRUE를 할당하면 상삼각행렬이 출력|
+
+
+**데이터 표준화와 정규화는 R 기본함수인 scale()**로 간단하게 실행할 수 있다.
+
+
+추가적인 팁으로, **sapply()함수라는 각 컬럼별로 공통의 함수를 적용해주는 편리한 함수**가 있다.
+
+
+```{r}
+# 1. 데이터 표준화 및 정규화 실습
+dataset <- iris[, -5]
+head(dataset)
+
+scaleA <- scale(x = dataset$Sepal.Length,
+                center = mean(x = dataset$Sepal.Length),
+                scale = sd(x = dataset$Sepal.Length))
+head(scaleA)
+
+# 참고로 center와 scale에는 평균과 표준편차가 기본값이다.
+scaleB <- scale(x = dataset$Sepal.Length)
+head(scaleB)
+
+# 전체 데이터 표준화
+scaleC <- scale(dataset)
+head(scaleC)
+
+
+# 2. 정규화 실습
+scaleA <- scale(x = dataset$Sepal.Length,
+                center = min(x = dataset$Sepal.Length),
+                scale = range(x = dataset$Sepal.Length) %>% diff())
+head(scaleA)
+
+
+# 전체 데이터 정규화
+ScaleB <- scale(x = dataset,
+                center = sapply(dataset, FUN = min),
+                scale = sapply(dataset, 
+                               FUN = function(x) range(x) %>% diff))
+head(ScaleB)
+
+
+# 3. 거리 계산 실습
+dataset <- iris[1:2, -5]
+dataset
+
+
+# 유클리디안 거리
+dist(dataset, method = "euclidean")
+# 맨하탄 거리
+dist(dataset, method = "manhattan")
+# 민코우스키 거리
+dist(dataset, method = "minkowski", p = 3)
+# 맥시멈 거리
+dist(dataset, method = "maximum")
+```
+
+
+
+
+#가중치 없는 knn모형(와인 데이터 품질 등급)
+
+
+분류모형은 목표변수가 범주형이어야 하므로 "quality" 컬럼을 적당한 기준을 정해 라벨링한다.
+
+
+**class 패키지의 knn() 함수**
+
+
+|knn의 인자|설명|
+|:-:|:-:|
+|train|훈련셋을 할당한다. (목표변수 제외)|
+|test|시험셋을 할당한다. (목표변수 제외)|
+|cl|목표변수를 할당한다. 범주형으로 할당해야 한다.|
+|k|참고할 이웃의 수를 정수로 할당한다.|
+|prob|목표변수 범주에 속할 확률 반환 여부를 TRUE FALSE로 할당|
+
+
+와인 데이터 목표변수의 경우 각 레벨의 비중이 78: 22로 불균형 데이터셋이다. **불균형일 경우, 정확도는 높지만 민감도와 정밀도 등은 낮을 수 있다.** 따라서 **표본 균형화 작업**을 실행해야 한다.
+
+
+- Oversampling : 소수 레벨의 비중이 다수 레벨의 비중보다 크게 작으므로, 소수 레벨의 행을 여러 번 복사하여 다수 레벨의 건수만큼 늘린다.
+- Undersampling : 다수 레벨의 건수를 소수 레벨의 건수만큼 줄인다.
+- SMOTE : Oversampling과 Undersampling을 혼합한 방법이다.
+
+
+**ROSE 패키지의 ovun.sample() 함수**로 오버샘플링, 언더샘플링 및 smote를 실행할 수 있다.
+
+
+|ovun.sample의 인자|설명|
+|:-:|:-:|
+|formula|목표변수와 입력변수 간 관계식을 지정한다.|
+|data|훈련셋을 할당한다.|
+|method|"over", "under", "both"|
+|p|목표변수의 범주형 비중을 설정. 0.5로 할 경우 같은  비중|
+|seed|set.seed 기능|
+
+
+```{r}
+# 와인데이터 불러오기
+load(file = "practice_data/wine.RData")
+
+head(wine)
+
+# 목표변수의 누적상대도수
+wine$quality %>% 
+  table() %>% 
+  prop.table() %>% 
+  cumsum() %>% 
+  round(digits = 4L)*100
+
+# quality의 분포보기
+ggplot(data = wine) +
+  geom_bar(mapping = aes(x = quality,
+                         y = ..prop..))
+
+# knn 분류를 위해서 목표변수 새로 만들기
+# quality 값이 3~6이면 good 7~9이면 best를 할당한다.
+wine$grade <- ifelse(wine$quality >= 7, "best", "good")
+wine$grade <- as.factor(wine$grade)
+
+# 모든 종속변수를 표준화한다.
+wine.scaled <- scale(x = wine[, 1:11]) %>% as.data.frame()
+wine.scaled <- cbind(wine.scaled, wine$grade)
+head(wine.scaled)
+
+set.seed(123)
+
+index <- sample(x = 1:2,
+                size = nrow(wine.scaled),
+                prob = c(0.7,0.3),
+                replace = TRUE)
+
+# 훈련셋과 시험셋
+train.set <- wine.scaled[index == 1, ]
+test.set <- wine.scaled[index == 2, ]
+
+# grade 비율 확인하기
+train.set$`wine$grade` %>% table() %>% prop.table()
+test.set$`wine$grade` %>% table() %>% prop.table()
+
+fit.knn <- knn(train = train.set[, 1:11],
+               test = test.set[, 1:11],
+               cl = train.set$`wine$grade`,
+               k = train.set %>% nrow() %>% sqrt() %>% ceiling(),
+               prob = TRUE)
+
+# 결과 확인하기
+str(fit.knn)
+
+# 예측값의 확률 확인하는 방법
+attr(x = fit.knn, which = "prob")[1:100]
+
+# 실제값과 예측값 객체 저장하기
+pred <- fit.knn
+real <- test.set$`wine$grade`
+
+# 분류모형 성능 평가하기
+confusionMatrix(pred,real)
+F1_Score(pred, real)
+
+real <- as.numeric(real)
+pred <- as.numeric(pred)
+pROC::auc(real, pred)
+
+
+# 2. 표본 샘플링을 통해서 정확도 높이기
+
+train.set <- train.set %>% 
+  dplyr::rename(grade = `wine$grade`)
+
+# ovun.sample() 사용하기
+train.set.bal <- ovun.sample(formula = grade ~.,
+                             data = train.set,
+                             method = "both",
+                             p = 0.5,
+                             seed = 123)
+train.set.bal <- train.set.bal$data
+
+# 모형 적합하기
+fit.knn.bal <- knn(train = train.set.bal[, 1:11],
+                   test = test.set[, 1:11],
+                   cl = train.set.bal$grade,
+                   k = nrow(train.set.bal) %>% sqrt() %>% ceiling(),
+                   prob = TRUE)
+
+# 예측값 객체 저장하기
+pred <- fit.knn.bal
+
+# 레벨 재조정
+levels(pred)
+pred <- relevel(pred, ref = "best")
+
+# 실제값 객체 저장하기
+real <- test.set$`wine$grade`
+
+
+# 분류모형 성능 평가하기
+confusionMatrix(pred, real)
+F1_Score(real, pred)
+real <- as.numeric(real)
+pred <- as.numeric(pred)
+pROC::auc(real, pred)
+```
+
+
+#가중치 있는 knn 모형
+
+
+**kknn 패키지의 kknn() 함수를 이용한다.**
+
+
+|kknn의 인자|설명|
+|:-:|:-:|
+|formula|목표변수와 입력변수 간 관계식을 지정한다.|
+|train|훈련셋을 할당한다.|
+|test|시험셋을 할당한다.|
+|k|참고할 이웃의 수를 할당|
+|distance|Minkowski 거리에서의 p값을 정수로 입력|
+|kernel|가중치 부여 방법을 할당|
+
+
+참고로 kernel은  **"rectangular" (가중치 없는 모형)**, "triangular", "epanechnikov", "biweight", "triweight", "cos", "inv", "gaussian", "rank" and "optimal". 에서 선택한다. 도움말 참고
+
+
+```{r}
+# kknn 모형 적합하기
+fit.kknn <- kknn(formula = grade ~.,
+                 train = train.set.bal,
+                 test = test.set,
+                 k = train.set.bal %>% nrow() %>% sqrt() %>% ceiling(),
+                 distance = 2,
+                 kernel = "triangular")
+
+str(fit.kknn)
+
+# 예측값과 실제값 처리
+pred <- fit.kknn$fitted.values
+real <- test.set$`wine$grade`
+
+levels(pred)
+pred <- relevel(pred, ref = "best")
+
+
+# 분류모형 성능 평가하기
+confusionMatrix(pred, real)
+F1_Score(real, pred)
+pred <- as.numeric(pred)
+real <- as.numeric(real)
+pROC::auc(real, pred)
+```

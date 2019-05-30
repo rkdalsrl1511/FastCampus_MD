@@ -1,0 +1,162 @@
+---
+title: "fastcampus_머신러닝_3"
+author: "huimin"
+date: "2019년 5월 28일"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#기초설정
+```{r}
+library(tidyverse)
+library(readr)
+library(caret) # 혼동행렬을 위한 패키지
+library(e1071) # confusionMatrix 함수를 사용하기 위한 패키지
+library(mlbench)
+library(MLmetrics)
+library(pROC)
+library(ROSE)
+```
+
+
+#나이브 베이즈 알고리즘의 개요
+
+
+- 나이브 베이즈 알고리즘은 **조건부 확률과 베이즈 정리**를 이용한다.
+- 나이브(naive)는 순진하다는 의미를 갖는데, **입력변수의 각 항에 대해 서로 독립이라는 가정**을 하기 때문에 붙여진 이름이다.
+
+
+# 조건부 확률
+
+
+![Caption](img/day03_1.jpg)
+
+
+![Caption](img/day03_2.jpg)
+
+
+# 베이즈 정리
+
+
+![Caption](img/day03_3.jpg)
+
+
+![Caption](img/day03_4.jpg)
+
+
+![Caption](img/day03_5.jpg)
+
+
+![Caption](img/day03_6.jpg)
+
+
+# 나이브 베이즈 알고리즘
+
+
+![Caption](img/day03_7.jpg)
+
+
+![Caption](img/day03_8.jpg)
+
+
+![Caption](img/day03_9.jpg)
+
+
+![Caption](img/day03_10.jpg)
+
+
+![Caption](img/day03_11.jpg)
+
+
+**e1071 패키지의 naiveBayes() 함수**를 사용하면 나이브 베이즈 알고리즘을 활용한 분류 모형을 적합할 수 있다.
+
+
+|naiveBayes의 인자|설명|
+|:-:|:-:|
+|x|입력변수를 할당한다. (숫자형 행렬, 범주형 데이터프레임 등)|
+|y|목표변수를 할당한다. (벡터)|
+|formula|목표변수 ~ 입력변수 형태로 관계식을 할당할 수 있다.|
+|data|훈련셋을 할당한다.|
+|laplace|라플라스 스무딩을 적용할 숫자를 할당한다. 기본값 0|
+
+
+```{r}
+# 투표 데이터로 실습하기
+data("HouseVotes84", package = "mlbench")
+
+# 데이터 구조
+str(HouseVotes84)
+
+# 팩터 순서 바꾸기
+levels(HouseVotes84$Class)
+HouseVotes84$Class <- relevel(HouseVotes84$Class, ref = "republican")
+
+# 훈련셋, 시험셋 나누기
+set.seed(123)
+index <- sample(x = 1:2,
+                size = nrow(HouseVotes84),
+                prob = c(0.7,0.3),
+                replace = TRUE)
+
+train.set <- HouseVotes84[index == 1, ]
+test.set <- HouseVotes84[index == 2, ]
+
+
+# 1. 라플라스 스무딩이 없는 분류모형 적합하기
+fit.NB0 <- naiveBayes(formula = Class ~.,
+                      data = train.set,
+                      laplace = 0)
+
+# 모형의 구조
+str(fit.NB0)
+
+# 사전확률(aporiori)
+fit.NB0$apriori
+
+# V1에 대한 가능도(likelihood)
+fit.NB0$tables$V1
+
+# 민주당의 경우 V1 정책에 찬성할 가능도가 60%, 공화당원이라면 찬성할 가능도가 18%라는 것을 의미한다.
+
+# 위의 결과는 아래와 같다.
+table(train.set$Class, train.set$V1) %>% prop.table(margin = 1)
+
+# 분류모형 평가하기
+pred <- predict(object = fit.NB0, newdata = train.set)
+real <- train.set$Class
+
+confusionMatrix(pred, real)
+F1_Score(real, pred)
+
+real <- as.numeric(real)
+pred <- as.numeric(pred)
+pROC::auc(real, pred)
+
+
+# 2. 표본 샘플링 후, 라플라스 스무딩 적용해서 모형 적합하기
+train.set.bal <- ovun.sample(formula = Class ~.,
+                             data = train.set,
+                             method = "both",
+                             p = 0.5,
+                             seed = 123) %>% `[[`("data")
+
+fit.NB1 <- naiveBayes(formula = Class ~.,
+                      data = train.set.bal,
+                      laplace = 1)
+
+str(fit.NB1)
+
+pred <- predict(object = fit.NB1, newdata = train.set.bal)
+real <- train.set.bal$Class
+
+# 성능 평가하기
+confusionMatrix(pred, real)
+F1_Score(real, pred)
+real <- as.numeric(real)
+pred <- as.numeric(pred)
+pROC::auc(real, pred)
+```
