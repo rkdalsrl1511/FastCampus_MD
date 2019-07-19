@@ -1,0 +1,297 @@
+---
+title: "fastcampus_머신러닝_6"
+author: "huimin"
+date: '2019 7 19 '
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# 기초 설정
+```{r}
+library(tidyverse)
+library(readr)
+library(caret)
+library(MLmetrics)
+library(e1071)
+```
+
+
+# 랜덤 포레스트 알고리즘의 개요 (회귀나무는 생략하였으므로 패캠 교재 참고)
+
+
+의사결정나무는 하나의 나무모형을 적합하여 범주형 목표변수를 분류하거나 연속형 목표변수를 추정(회귀)하는 알고리즘이다. 반면에, **랜덤 포레스트는 수 백, 수 천 개의 나무모형을 적합하여 결과를 추정**한다. **최종모형은 다수결 방식**으로 가장 많은 점수를 받은 결과를 선택하게 된다.
+
+
+또한, 만약 목표변수가 **연속형**이라면 1천 개의 나무로부터 **추정값의 평균을 반환**한다.
+
+
+분석가는 분류모형이나 회귀모형을 적합할 때, **나무의 수와 입력변수의 수만 결정**하면 된다.
+
+
+**입력변수의 수**는 일반적으로, 분류모형의 경우 데이터셋의 전체 feature의 수(p)의 양의 제곱근(소수점 이하 절사), 예측모형(회귀모형)의 경우 p/3으로 결정한다.
+
+
+분석가는 랜덤 포레스트 알고리즘으로 모형을 적합하고자 할 때, 최적 나무의 수와 입력변수의 수를 정해주어야 하는데, 이러한 최적의 하이퍼 파라미터를 찾기 위해 **그리드 탐색**을 한다.
+
+
+# 랜덤 포레스트 알고리즘의 이론
+
+
+![Caption](img/day06_1.jpg)
+
+
+![Caption](img/day06_2.jpg)
+
+
+![Caption](img/day06_3.jpg)
+
+
+# 랜덤 포레스트 프로세스
+
+
+![Caption](img/day06_4.jpg)
+
+
+![Caption](img/day06_5.jpg)
+
+
+![Caption](img/day06_6.jpg)
+
+
+![Caption](img/day06_7.jpg)
+
+
+![Caption](img/day06_8.jpg)
+
+
+# 랜덤 포레스트 분류모형
+
+
+![Caption](img/day06_9.jpg)
+
+
+![Caption](img/day06_10.jpg)
+
+
+# 랜덤 포레스트 회귀모형
+
+
+![Caption](img/day06_11.jpg)
+
+
+![Caption](img/day06_12.jpg)
+
+
+# 랜덤 포레스트 분류모형 적합 실습
+
+
+## 1. 데이터 전처리하기
+```{r}
+# 실습용 데이터
+load(file = "practice_data/wine.RData")
+
+# 데이터 구조 파악하기
+str(wine)
+summary(wine)
+
+# 목표변수의 비율 확인하기
+wine$quality %>% table() %>% prop.table() %>% round(digits = 4) * 100
+
+# 이진분류를 하기 위해서, 목표변수 새롭게 만들기
+wine$grade <- ifelse(wine$quality >= 7, "best", "good")
+wine$grade <- as.factor(wine$grade)
+
+# 비율 확인하기
+wine$grade %>% table() %>% prop.table() %>% round(digits = 4) * 100
+
+
+# 훈련셋과 시험셋 나누기
+set.seed(123)
+
+index <- sample(x = 1:2,
+                size = nrow(wine),
+                prob = c(0.7, 0.3),
+                replace = TRUE)
+
+# quality 변수 삭제하고 trainset과 testset으로.
+trainset <- wine[index == 1, -12]
+testset <- wine[index == 2, -12]
+
+# 비율 다시 한 번 확인하기
+trainset$grade %>% table() %>% prop.table()
+testset$grade %>% table() %>% prop.table()
+```
+
+
+## 2. 랜덤 포레스트 분류모형 적합하기
+```{r}
+# 항상 같은 결과를 얻고 싶다면, set.seed()를 설정하여야 한다.
+# ntree 인자에 별도의 값을 지정하지 않으면 500개의 나무모형을 적합한다.
+# mtry 인자에 별도의 값을 지정하지 않으면 분류모형의 경우 양의 제곱근이 할당된다.
+# 이번 실습에서는 ntree에 1000, mtry에 3을 할당하겠다.
+library(randomForest)
+
+# 모형 적합하기
+fit.rf0 <- randomForest(x = trainset[, -12],
+                        y = trainset[, 12],
+                        xtest = testset[, -12],
+                        ytest = testset[, 12],
+                        ntree = 1000,
+                        mtry = 3,
+                        importance = TRUE,
+                        do.trace = 50,
+                        keep.forest = TRUE)
+
+# 적합한 모형 출력하기
+print(fit.rf0)
+
+# OOB 에러 추정값 그래프
+plot(x = fit.rf0$err.rate[, 1],
+     ylab = "OOB Error",
+     type = "l")
+
+# 오분류된 수를 확인한다.
+sum(fit.rf0$predicted != trainset$grade)
+
+# 오분류율을 계산한다.
+100 * sum(fit.rf0$predicted != trainset$grade) / nrow(trainset)
+
+# 모형 적합 결과를 그래프로 출력해보기
+# best(red)와 good(green), 이를 가중평균한 검정색 곡선이 그려진다.
+plot(fit.rf0)
+
+# 변수의 중요도 확인하기
+importance(fit.rf0)
+
+# 변수의 중요도 그래프
+varImpPlot(fit.rf0,
+           main = "Random Forest Classification Model with Wine Dataset")
+
+# 앙상블 방식의 분류모형은 마진(Margin) 그래프로 성능을 가늠할 수 있다.
+plot(x = margin(fit.rf0))
+```
+
+
+변수의 중요도 표의 경우, fixed.acidity 변수가 제외될 경우, best에 대한 오분류 에러가 약 42% 증가함을 의미한다.
+
+
+## 3. 성능 확인하기
+```{r}
+# 훈련셋의 추정값과 훈련셋의 실제값 비교해보기
+tr.pred <- fit.rf0$predicted
+tr.real <- trainset$grade
+
+confusionMatrix(tr.pred, tr.real)
+F1_Score(tr.pred, tr.real)
+
+# 시험셋의 추정값과 시험셋의 실제값 비교해보기
+te.pred <- predict(object = fit.rf0, 
+                   newdata = testset,
+                   type = "response")
+te.real <- testset$grade
+
+confusionMatrix(te.pred, te.real)
+F1_Score(te.pred, te.real)
+```
+
+
+## 4. 튜닝을 통하여 성능 향상시키기
+
+
+- 최적의 하이퍼 파라미터(나무의 수, 입력변수의 수)를 찾기 위해 튜닝한다.
+- 탐색할 나무의 수와 입력변수의 수를 선정하여 **그리드(grid)**를 생성한다.
+- 그리드 객체를 생성할 때, expand.grid() 함수를 사용하며 데이터프레임이 반환된다.
+- 그리드를 출력하면 두 개의 하이퍼 파라미터들의 조합인 것을 알 수 있다.
+- 튜닝하는 과정에서 그리드의 각 행을 반복하며 실행한다.
+- 분류모형의 경우, 오분류율이 가장 낮을 때의 하이퍼 파라미터를 선정한다.
+
+
+```{r}
+# 그리드 생성하기
+grid <- expand.grid(ntree = c(300,500,1000,1500),
+                    mtry = c(2,3,4,5,6))
+
+# 생성한 그리드 확인하기
+print(grid)
+
+# 각 모형의 오분류율을 저장할 빈 데이터프레임 생성하기
+tune.df <- data.frame()
+
+# 반복할 횟수
+n <- nrow(grid)
+
+# 반복문을 실행하여 각 파라미터별 오분류율을 데이터프레임에 저장하기
+for(i in 1:n) {
+  
+  cat("나무의 수 : ",grid[i,1]," 입력변수의 수 : ",grid[i,2],"\n")
+  
+  fit.rfex <- randomForest(x = trainset[, -12],
+                           y = trainset[, 12],
+                           xtest = testset[, -12],
+                           ytest = testset[, 12],
+                           ntree = grid[i, "ntree"],
+                           mtry = grid[i, "mtry"],
+                           importance = TRUE,
+                           do.trace = 50,
+                           keep.forest = TRUE)
+  
+  miss.rate <- 100 * sum(fit.rfex$predicted != trainset$grade) / nrow(trainset)
+  
+  df.ex <- data.frame(NTREE = grid[i,1],
+                      MTRY = grid[i,2],
+                      MisClassRate = miss.rate)
+  
+  
+  tune.df <- rbind(tune.df, df.ex)
+  
+}
+
+# 결과를 그래프로 그려보기
+ggplot(data = tune.df) +
+  geom_point(mapping = aes(x = MTRY, y = MisClassRate)) +
+  facet_wrap(~ NTREE, nrow = 2)
+
+
+# 데이터프레임에서 최적의 파라미터를 찾기
+best.ntree <- tune.df[tune.df$MisClassRate == min(tune.df$MisClassRate) , 1]
+best.mtry <- tune.df[tune.df$MisClassRate == min(tune.df$MisClassRate) , 2]
+
+
+# 최적의 파라미터를 통해 모형을 적합하기
+fit.rf1 <- randomForest(x = trainset[, -12],
+                        y = trainset[, 12],
+                        xtest = testset[, -12],
+                        ytest = testset[, 12],
+                        ntree = best.ntree,
+                        mtry = best.mtry,
+                        importance = TRUE,
+                        do.trace = 50,
+                        keep.forest = TRUE)
+```
+
+
+## 5. 튜닝 전과 후 성능 비교
+```{r}
+# 1. 튜닝 전의 지표
+te.pred <- predict(object = fit.rf0, 
+                   newdata = testset,
+                   type = "response")
+te.real <- testset$grade
+
+confusionMatrix(te.pred, te.real)
+F1_Score(te.pred, te.real)
+
+
+# 2. 튜닝 후의 지표
+te.pred <- predict(object = fit.rf1, 
+                   newdata = testset,
+                   type = "response")
+te.real <- testset$grade
+
+confusionMatrix(te.pred, te.real)
+F1_Score(te.pred, te.real)
+```
