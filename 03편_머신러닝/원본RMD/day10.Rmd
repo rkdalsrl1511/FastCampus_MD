@@ -1,0 +1,327 @@
+---
+title: "fastcampus_머신러닝_10"
+author: "huimin"
+date: '2019 7 24 '
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# 기초 설정
+```{r}
+library(tidyverse)
+library(readr)
+```
+
+
+# 요인 분석 개요
+
+
+![Caption](img/day10_1.jpg)
+
+
+![Caption](img/day10_2.jpg)
+
+
+![Caption](img/day10_3.jpg)
+
+
+![Caption](img/day10_4.jpg)
+
+
+결국 주성분 분석과 요인 분석 모두, 데이터 탐색에 도움을 주는 방법이라는 말이다. 개념에는 차이가 있지만, 사용법은 비슷할 수 있다.
+
+
+# 요인모형과 요인점수의 추정
+
+
+![Caption](img/day10_5.jpg)
+
+
+![Caption](img/day10_6.jpg)
+
+
+![Caption](img/day10_7.jpg)
+
+
+![Caption](img/day10_8.jpg)
+
+
+![Caption](img/day10_9.jpg)
+
+
+개념이 어렵지만, 전부 이해하려고 하지 말고, 사용법과 목적만을 이해하여 그냥 사용하자. 나중에 본격적인 수학적인 이론 공부를 하면 된다.
+
+
+# 요인분석 프로세스
+
+
+![Caption](img/day10_10.jpg)
+
+
+![Caption](img/day10_11.jpg)
+
+
+![Caption](img/day10_12.jpg)
+
+
+# 요인분석 실행 및 결과 해석
+
+
+![Caption](img/day10_13.jpg)
+
+
+![Caption](img/day10_14.jpg)
+
+
+![Caption](img/day10_15.jpg)
+
+
+# 요인 분석 실습 : AptPrice로 요인 점수 추출하고 선형 회귀모형 결과 비교
+
+
+## 1. 데이터 전처리
+```{r}
+# 데이터 불러온 후, 인코딩 형식 변경하기
+apt.price <- read_rds(path = "practice_data/aptPrice.RDS")
+colnames(apt.price) <- iconv(colnames(apt.price), from = "UTF-8", to = "EUC-KR")
+
+
+# 데이터 구조 확인하기
+str(apt.price)
+
+
+# 데이터 전체를 셔플한다.
+set.seed(123)
+index <- sample(x = 1:nrow(apt.price))
+apt.price.4fa <- apt.price[index, ]
+
+
+# 중복되는 아파트명을 가지는 행들은 전부 제거하기
+apt.price.4fa <- apt.price.4fa[!duplicated(apt.price.4fa$아파트명), ]
+
+
+# 목표변수를 따로 저장하기
+apt.price.object <- apt.price.4fa$거래금액
+
+
+# 필요없는 컬럼을 제외(문자열과 목표변수)
+apt.price.4fa <- apt.price.4fa[, c(2:3, 5:18)]
+
+
+# 변수들을 표준화한다.
+apt.price.scaled <- scale(apt.price.4fa)
+
+
+# 전처리한 데이터셋을 확인한다.
+str(apt.price.scaled)
+head(apt.price.scaled, n = 10)
+```
+
+
+## 2. 주성분 분석 시행하기
+```{r}
+# prcomp() 함수는 5개의 원소를 가진 리스트 객체를 결과로 반환한다.
+fit.pca <- prcomp(x = apt.price.scaled)
+
+str(fit.pca)
+summary(fit.pca)
+
+
+# 그림을 그려서 어디까지를 사용할 지 판단하자.
+plot(fit.pca,
+     type = "l")
+abline(h = 1, col = "red", lty = 2)
+```
+
+
+요인 분석에서는 고유값이 1이상인 주성분만 선택하므로, 위의 결과로 판단하였을 때, 제 1~4 주성분까지 선택하기로 하였다.
+
+
+## 3. 요인 분석
+```{r}
+# 요인 분석 패키지
+library(psych)
+
+
+# 요인 모형 적합하기 rotate = 'none'을 할 경우, 요인 회전을 실시하지 않는다.
+fit.fa0 <- principal(r = apt.price.scaled,
+                     nfactors = 4,
+                     rotate = "none")
+
+
+# 요인 분석 결과
+print(fit.fa0)
+```
+
+
+PC1, PC2, PC3, PC4에 대하여 요인 적재량이 나타나고 있다. 요인 적재량이 1에 가까울수록 해당 잠재 요인의 설명력이 높은 것이다. 이 외의 칼럼은 다음과 같다. 
+
+
+
+- h2 : 변수마다 요인 적재량의 제곱을 합한 것이다. 설명되는 분산을 의미한다.
+- u2 : 표준화된 변수의ㅏ 분산 1에서 h2를 뺀 값이다.
+- com : 변수의 복잡도를 각 변수가 여러 요인에 걸쳐서 설명되고 있는지 확인한다. 각 요인 적재량의 제곱합을 제곱한 값을 분자로 놓고, 각 요인 적재량의 네 제곱합을 분모로 하여 계산한다. 1에 가깝다는 것은 요인 적재량이 큰 주성분(요인)이 하나라는 의미이다.
+- SS loadings : 각 주성분들의 고유값
+- Proportion Var : 각 주성분들의 분산 비중
+- Cumulative Var : 주성분들의 누적 분산 비중(설명력)
+
+
+요인 모형의 적합도 검정에는 RMSR이 사용되는데, 잔차 행렬의 각 성분을 제곱하여 평균한 다음 제곱근을 씌워서 계산한다.* *RMSR이 0.05보다 작을 때**, 요인 모형 적합도가 좋다고 판단한다.
+
+
+```{r}
+# 요인 점수 출력하기
+head(fit.fa0$scores, n = 10)
+
+# 요인 점수간 상관관계를 확인한다.
+# 대각 성분을 제외한, 모든 삼각행렬의 성분이 0이면 모두 서로 독립이라고 할 수 있다.
+cor(fit.fa0$scores) %>% round(digits = 0)
+```
+
+
+```{r}
+# 요인 점수가 서로 독립이므로 요인 회전을 추가하여 요인 분석을 실행한다.
+fit.fa1 <- principal(r = apt.price.scaled,
+                     nfactors = 4,
+                     rotate = "varimax")
+
+print(fit.fa1)
+
+head(apt.price.scaled)
+```
+
+
+요인 회전을 함으로써 주성분들의 고유값들이 평탄해졌다. 그리고 항목 복잡도 평균(Mean Item Complexity)도 낮아졌다. 이것은 **각 변수들이 하나의 잠재 요인으로 집중되었다는 것을 의미한다.**
+
+
+요인 적재량 테이블에서 RC1에 대한 변수별 선형관계식을 표현하면 다음과 같다.
+
+
+RC1 = 0.14X전용면적 -0.02X층 + 0.07X최고층수 + ...
+
+
+그리고 RC1에는 연면적, 주거전용면적, 일반관리인원, 경비인원, 청소인원, 승강기수의 요인 적재량이 높으므로 **고급 아파트라고 명명**할 수 있을 것이다. 이렇듯이, 각 요인들의 공통된 특징을 통하여 사용자가 임의로 명명을 하고 데이터를 해석하는 것이다. 
+
+
+```{r}
+# RC1과 RC2 만으로 행렬도를 그려본다면 다음과 같다.
+plot(x = fit.fa1$scores[, "RC1"],
+     y = fit.fa1$scores[, "RC2"],
+     type = "n")
+
+text(x = fit.fa1$scores[, "RC1"],
+     y = fit.fa1$scores[, "RC2"],
+     cex = 0.8,
+     font = 2)
+
+points(x = fit.fa1$scores[, "RC1"],
+       y = fit.fa1$scores[, "RC2"],
+       pch = 19,
+       col = "red")
+```
+
+
+**요인 회전 그래프는 생략**하였다. 이것을 보고싶다면, 교재를 참고하라.
+
+
+## 4. 선형회귀분석 - 다중공선성 제거
+```{r}
+# 선형 회귀분석을 위한 데이터셋을 새로 만든다.
+apt.price.4fa <- cbind(apt.price.4fa, 거래금액 = apt.price.object)
+
+# 회귀모형을 적합한다.
+fit.reg1 <- lm(formula = 거래금액 ~.,
+               data = apt.price.4fa)
+
+# 결과를 확인한다.
+summary(fit.reg1)
+
+
+# 다중공선성을 확인한다.
+library(car)
+car::vif(mod = fit.reg1)
+
+see.vif <- car::vif(mod = fit.reg1)
+
+see.vif
+
+
+
+# 다중공선성이 매우 높은 것들이 여러가지 존재하기 때문에, 몇몇 변수는 제거해야한다.
+# 다중공선성이 높은 것들을 차례차례 제거해나가며 모형을 적합하는 반복문
+apt.price.4fa2 <- apt.price.4fa
+
+for(i in 1:ncol(apt.price.4fa2)) {
+  
+  fit.reg1 <- lm(formula = 거래금액 ~.,
+                 data = apt.price.4fa2)
+  
+  see.vif <- car::vif(mod = fit.reg1)
+  
+  k <- 0
+  
+  for (j in 1:length(see.vif)) {
+    
+    if(see.vif[j] > 10) {
+      
+      k <- j
+      break
+      
+    }
+  }
+  
+  if (k == 0) {
+    break
+  }else if(k != 0){
+      
+    apt.price.4fa2 <- apt.price.4fa2[, -k]
+    
+    }
+  
+}
+
+# 결과를 확인한다.
+summary(fit.reg1)
+see.vif
+```
+
+
+## 5. 선형회귀분석 - 유의하지 않은 회귀계수 제거
+```{r}
+# stepwise를 이용하여, 유의하지 않은 변수를 제거한다.
+fit.stepreg <- step(fit.reg1,
+                    direction = "both")
+
+# 결과를 확인한다.
+summary(fit.stepreg)
+car::vif(fit.stepreg)
+```
+
+
+## 6. 요인 점수를 이용하여 선형 회귀모형 적합해보기
+```{r}
+# 요인 점수와 목표변수를 통합하여 데이터 프레임을 새로 만들기
+apt.price.fas <- cbind(fit.fa1$scores, 거래금액 = apt.price.object) %>%
+  as.data.frame()
+
+# 모형 적합하기
+fit.reg2 <- lm(formula = 거래금액 ~.,
+               data = apt.price.fas)
+
+# 모형 결과보기
+summary(fit.reg2)
+
+# 다중공선성의 경우, 모든 입력변수가 독립이므로 문제가 발생하지 않는다.
+car::vif(fit.reg2)
+
+# 하지만 유의하지 않은 회귀계수가 있으므로, stepwise를 사용하겠다.
+fit.stepreg2 <- step(fit.reg2,
+                     direction = "both")
+
+# 결과보기
+summary(fit.stepreg2)
+```
